@@ -103,6 +103,7 @@ export interface UserProfile {
   id: string;
   name: string;
   avatar_url?: string;
+  bio?: string;
   default_radius_km?: number;
   currency?: string;
   units?: string;
@@ -110,6 +111,11 @@ export interface UserProfile {
   location_lat?: number;
   location_lng?: number;
   onboarding_completed?: boolean;
+  rating_avg?: number;
+  rating_count?: number;
+  account_status?: string;
+  suspension_reason?: string;
+  suspended_at?: string;
   created_at: string;
 }
 

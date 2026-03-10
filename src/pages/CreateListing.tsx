@@ -1,0 +1,648 @@
+import { useState, useRef, useEffect } from "react";
+import { useNavigate, useSearchParams } from "react-router-dom";
+import { motion, AnimatePresence } from "framer-motion";
+import { ArrowLeft, ArrowRight, Camera, X, ChevronRight, Loader2, RotateCcw, GripVertical } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/integrations/supabase/client";
+import { useAuth } from "@/contexts/AuthContext";
+import { useLanguage } from "@/contexts/LanguageContext";
+import { toast } from "sonner";
+import { CATEGORIES, type ClothingCategory, type ListingCondition } from "@/types";
+import { cn, getCurrencySymbol, formatPrice } from "@/lib/utils";
+
+const CONDITIONS: { value: ListingCondition; label: string; desc: string }[] = [
+  { value: "new_with_tags", label: "New with tags", desc: "Never worn, tags attached" },
+  { value: "like_new", label: "Like new", desc: "Worn once or twice, pristine" },
+  { value: "good", label: "Good", desc: "Some light signs of wear" },
+  { value: "fair", label: "Fair", desc: "Visible wear, still great" },
+];
+
+const COMMON_COLORS = ["Black", "White", "Grey", "Brown", "Beige", "Blue", "Navy", "Red", "Pink", "Green", "Yellow", "Orange", "Purple", "Multicolor"];
+
+const STEPS = ["Photos", "Details", "Price", "Preview"];
+
+// Unified photo type — either an already-uploaded URL or a new local file
+type PhotoEntry =
+  | { kind: "existing"; url: string }
+  | { kind: "new"; file: File; preview: string };
+
+function getPreview(p: PhotoEntry): string {
+  return p.kind === "existing" ? p.url : p.preview;
+}
+
+interface DraftData {
+  title: string;
+  category: ClothingCategory | "";
+  brand: string;
+  condition: ListingCondition | "";
+  size: string;
+  colors: string[];
+  description: string;
+  price: string;
+}
+
+function loadDraft(key: string): DraftData | null {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
+function loadDraftPhotos(key: string): string[] {
+  try {
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : [];
+  } catch { return []; }
+}
+
+function dataUrlToPhotoEntry(dataUrl: string, index: number): PhotoEntry {
+  const arr = dataUrl.split(",");
+  const mime = arr[0].match(/:(.*?);/)![1];
+  const bstr = atob(arr[1]);
+  const u8 = new Uint8Array(bstr.length);
+  for (let i = 0; i < bstr.length; i++) u8[i] = bstr.charCodeAt(i);
+  const file = new File([u8], `draft-photo-${index}.jpg`, { type: mime });
+  return { kind: "new", file, preview: dataUrl };
+}
+
+async function compressToDataUrl(src: string): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const MAX = 800;
+      const scale = Math.min(1, MAX / Math.max(img.width, img.height));
+      const canvas = document.createElement("canvas");
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext("2d")!.drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL("image/jpeg", 0.65));
+    };
+    img.src = src;
+  });
+}
+
+export default function CreateListing() {
+  const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const editId = searchParams.get("edit");
+  const isEditMode = !!editId;
+
+  const { user, profile } = useAuth();
+  const { t, isRTL } = useLanguage();
+
+  // User-scoped draft keys so different users never share drafts
+  const draftKey = `rewear_create_draft_${user?.id ?? ""}`;
+  const draftPhotosKey = `rewear_create_draft_photos_${user?.id ?? ""}`;
+
+  const [step, setStep] = useState(0);
+  const [submitting, setSubmitting] = useState(false);
+  const [loadingEdit, setLoadingEdit] = useState(isEditMode);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [showDraftBanner, setShowDraftBanner] = useState(() =>
+    !isEditMode && (!!loadDraft(draftKey) || loadDraftPhotos(draftPhotosKey).length > 0)
+  );
+
+  // Form state
+  const [photos, setPhotos] = useState<PhotoEntry[]>([]);
+  const [title, setTitle] = useState("");
+  const [category, setCategory] = useState<ClothingCategory | "">("");
+  const [brand, setBrand] = useState("");
+  const [condition, setCondition] = useState<ListingCondition | "">("");
+  const [size, setSize] = useState("");
+  const [colors, setColors] = useState<string[]>([]);
+  const [description, setDescription] = useState("");
+  const [price, setPrice] = useState("");
+
+  const [processingPhotos, setProcessingPhotos] = useState(false);
+
+  // Drag-and-drop state (mouse + touch)
+  const dragIndexRef = useRef<number | null>(null);
+  const dragOverIndexRef = useRef<number | null>(null);
+  const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
+  const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
+  // Skip the first effect run so we don't delete saved draft photos on mount
+  const photoEffectInitialized = useRef(false);
+
+  // Load existing listing in edit mode
+  useEffect(() => {
+    if (!editId) return;
+    async function loadListing() {
+      const { data, error } = await supabase
+        .from("clothing_listings")
+        .select("*")
+        .eq("id", editId)
+        .single();
+      if (error || !data) {
+        toast.error("Failed to load listing");
+        navigate(-1);
+        return;
+      }
+      setTitle(data.title ?? "");
+      setCategory((data.category as ClothingCategory) ?? "");
+      setBrand(data.brand ?? "");
+      setCondition((data.condition as ListingCondition) ?? "");
+      setSize(data.size_value ?? "");
+      setColors(data.colors ?? []);
+      setDescription(data.description ?? "");
+      setPrice(String(data.price ?? ""));
+      const existingPhotos: PhotoEntry[] = (data.photos ?? []).map((url: string) => ({
+        kind: "existing" as const,
+        url,
+      }));
+      setPhotos(existingPhotos);
+      setLoadingEdit(false);
+    }
+    loadListing();
+  }, [editId, navigate]);
+
+  // Auto-save text fields (create mode only)
+  useEffect(() => {
+    if (isEditMode) return;
+    const draft: DraftData = { title, category, brand, condition, size, colors, description, price };
+    const hasContent = title || category || brand || condition || size || colors.length || description || price;
+    if (hasContent) localStorage.setItem(draftKey, JSON.stringify(draft));
+  }, [isEditMode, draftKey, title, category, brand, condition, size, colors, description, price]);
+
+  // Auto-save photos as data URLs (create mode only)
+  // Skip the very first run to avoid deleting draft photos before user can restore them
+  useEffect(() => {
+    if (isEditMode) return;
+    if (!photoEffectInitialized.current) { photoEffectInitialized.current = true; return; }
+    const newPhotos = photos.filter(p => p.kind === "new") as { kind: "new"; file: File; preview: string }[];
+    if (newPhotos.length === 0) { localStorage.removeItem(draftPhotosKey); return; }
+    try {
+      localStorage.setItem(draftPhotosKey, JSON.stringify(newPhotos.map(p => p.preview)));
+    } catch { /* quota exceeded, skip */ }
+  }, [isEditMode, draftPhotosKey, photos]);
+
+  function restoreDraft() {
+    const draft = loadDraft(draftKey);
+    const savedPhotos = loadDraftPhotos(draftPhotosKey);
+    if (!draft && savedPhotos.length === 0) return;
+    if (draft) {
+      setTitle(draft.title);
+      setCategory(draft.category);
+      setBrand(draft.brand);
+      setCondition(draft.condition);
+      setSize(draft.size);
+      setColors(draft.colors);
+      setDescription(draft.description);
+      setPrice(draft.price);
+    }
+    if (savedPhotos.length > 0) setPhotos(savedPhotos.map(dataUrlToPhotoEntry));
+    setShowDraftBanner(false);
+    setStep(savedPhotos.length > 0 ? 1 : 0);
+    toast("Draft restored");
+  }
+
+  function discardDraft() {
+    localStorage.removeItem(draftKey);
+    localStorage.removeItem(draftPhotosKey);
+    setShowDraftBanner(false);
+  }
+
+  function clearDraft() {
+    localStorage.removeItem(draftKey);
+    localStorage.removeItem(draftPhotosKey);
+  }
+
+  async function addPhotos(files: FileList | null) {
+    if (!files) return;
+    setProcessingPhotos(true);
+    const newFiles = Array.from(files).slice(0, 8 - photos.length);
+    const newEntries: PhotoEntry[] = await Promise.all(
+      newFiles.map(async (file) => {
+        const dataUrl = await new Promise<string>(resolve => {
+          const reader = new FileReader();
+          reader.onload = e => resolve(e.target!.result as string);
+          reader.readAsDataURL(file);
+        });
+        const compressed = await compressToDataUrl(dataUrl);
+        return { kind: "new" as const, file, preview: compressed };
+      })
+    );
+    setPhotos(prev => [...prev, ...newEntries]);
+    setProcessingPhotos(false);
+  }
+
+  function removePhoto(index: number) {
+    setPhotos(prev => prev.filter((_, i) => i !== index));
+  }
+
+  // Shared reorder logic
+  function reorder(from: number, to: number) {
+    if (from === to) return;
+    setPhotos(prev => {
+      const next = [...prev];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
+  }
+
+  // Mouse drag handlers
+  function handleDragStart(i: number) {
+    dragIndexRef.current = i;
+    dragOverIndexRef.current = i;
+    setDraggingIndex(i);
+  }
+
+  function handleDragOver(e: React.DragEvent, i: number) {
+    e.preventDefault();
+    dragOverIndexRef.current = i;
+    setDragOverIndex(i);
+  }
+
+  function handleDragEnd() {
+    reorder(dragIndexRef.current!, dragOverIndexRef.current!);
+    dragIndexRef.current = null;
+    dragOverIndexRef.current = null;
+    setDragOverIndex(null);
+    setDraggingIndex(null);
+  }
+
+  // Touch drag handlers
+  function handleTouchStart(e: React.TouchEvent, i: number) {
+    dragIndexRef.current = i;
+    setDraggingIndex(i);
+  }
+
+  function handleTouchMove(e: React.TouchEvent) {
+    e.preventDefault();
+    const touch = e.touches[0];
+    const el = document.elementFromPoint(touch.clientX, touch.clientY);
+    const cell = el?.closest("[data-photo-index]");
+    if (cell) {
+      const idx = parseInt(cell.getAttribute("data-photo-index")!);
+      if (!isNaN(idx)) {
+        dragOverIndexRef.current = idx;
+        setDragOverIndex(idx);
+      }
+    }
+  }
+
+  function handleTouchEnd() {
+    if (dragIndexRef.current !== null && dragOverIndexRef.current !== null) {
+      reorder(dragIndexRef.current, dragOverIndexRef.current);
+    }
+    dragIndexRef.current = null;
+    dragOverIndexRef.current = null;
+    setDragOverIndex(null);
+    setDraggingIndex(null);
+  }
+
+  function toggleColor(color: string) {
+    setColors(prev => prev.includes(color) ? prev.filter(c => c !== color) : [...prev, color]);
+  }
+
+  const canNext0 = photos.length > 0;
+  const canNext1 = title.trim() && category && condition;
+  const canSubmit = price && parseFloat(price) > 0;
+
+  async function handleSubmit() {
+    if (!user) return;
+    setSubmitting(true);
+    try {
+      // Upload only new photos; reuse existing URLs
+      const photoUrls: string[] = [];
+      for (const photo of photos) {
+        if (photo.kind === "existing") {
+          photoUrls.push(photo.url);
+        } else {
+          const ext = photo.file.name.split(".").pop();
+          const path = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+          const { error: uploadErr } = await supabase.storage
+            .from("listing-photos")
+            .upload(path, photo.file, { cacheControl: "3600" });
+          if (uploadErr) throw uploadErr;
+          const { data: { publicUrl } } = supabase.storage.from("listing-photos").getPublicUrl(path);
+          photoUrls.push(publicUrl);
+        }
+      }
+
+      const listingData = {
+        title: title.trim(),
+        description: description.trim() || null,
+        category,
+        brand: brand.trim() || null,
+        condition,
+        size_value: size.trim() || null,
+        colors,
+        price: parseFloat(price),
+        currency: profile?.currency ?? "USD",
+        photos: photoUrls,
+      };
+
+      if (isEditMode) {
+        const { error } = await supabase
+          .from("clothing_listings")
+          .update(listingData)
+          .eq("id", editId);
+        if (error) throw error;
+        toast.success(t.listingUpdated);
+        navigate("/profile");
+      } else {
+        const { data, error } = await supabase.from("clothing_listings").insert({
+          ...listingData,
+          seller_id: user.id,
+          location_lat: profile?.location_lat ?? null,
+          location_lng: profile?.location_lng ?? null,
+          status: "available",
+        }).select("id").single();
+        if (error) throw error;
+        clearDraft();
+        toast.success(t.listingPublished);
+        navigate("/profile");
+      }
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to save listing");
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  // Block suspended / banned users from creating listings
+  const accountStatus = profile?.account_status;
+  if (!isEditMode && (accountStatus === "suspended" || accountStatus === "banned")) {
+    return (
+      <div className="min-h-screen bg-background flex flex-col items-center justify-center gap-4 px-6 text-center">
+        <p className="text-lg font-bold">
+          {accountStatus === "banned" ? "Account banned" : "Account suspended"}
+        </p>
+        <p className="text-sm text-muted-foreground">
+          {accountStatus === "banned"
+            ? "Your account has been permanently banned. You cannot create listings."
+            : "Your account is suspended. You cannot create listings at this time."}
+        </p>
+        <button onClick={() => navigate(-1)} className="text-primary text-sm font-semibold underline">Go back</button>
+      </div>
+    );
+  }
+
+  if (loadingEdit) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="min-h-screen bg-background flex flex-col">
+      {/* Header */}
+      <div className="flex items-center gap-3 px-5 pt-12 pb-4 border-b border-border">
+        <button onClick={() => step === 0 ? navigate(-1) : setStep(s => s - 1)}
+          className="w-9 h-9 rounded-full bg-muted flex items-center justify-center">
+          {isRTL ? <ArrowRight className="w-5 h-5" /> : <ArrowLeft className="w-5 h-5" />}
+        </button>
+        <div className="flex-1">
+          <h1 className="font-bold text-lg">{isEditMode ? t.editListing : t.sellAnItem}</h1>
+          <p className="text-xs text-muted-foreground">{STEPS[step]}</p>
+        </div>
+        <span className="text-xs text-muted-foreground font-medium">{step + 1}/{STEPS.length}</span>
+      </div>
+
+      {/* Progress */}
+      <div className="flex gap-1 px-5 pt-3">
+        {STEPS.map((_, i) => (
+          <div key={i} className={cn("flex-1 h-1 rounded-full transition-all duration-500", i <= step ? "bg-primary" : "bg-muted")} />
+        ))}
+      </div>
+
+      {/* Draft restore banner (create mode only) */}
+      {showDraftBanner && !isEditMode && (
+        <div className="mx-5 mt-3 flex items-center gap-3 px-4 py-3 rounded-2xl bg-primary/10 border border-primary/30">
+          <RotateCcw className="w-4 h-4 text-primary shrink-0" />
+          <p className="flex-1 text-sm font-medium text-primary">{t.hasSavedDraft}</p>
+          <button onClick={discardDraft} className="text-xs text-muted-foreground hover:text-foreground transition-colors">{t.discard}</button>
+          <button onClick={restoreDraft} className="text-xs font-bold text-primary hover:text-primary/80 transition-colors">{t.resumeDraft}</button>
+        </div>
+      )}
+
+      {/* Steps */}
+      <div className="flex-1 overflow-y-auto">
+        <AnimatePresence mode="wait">
+
+          {/* Step 0: Photos */}
+          {step === 0 && (
+            <motion.div key="s0" initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -40 }}
+              className="p-5 space-y-4">
+              <div>
+                <h2 className="text-xl font-bold">{t.addPhotos}</h2>
+                <p className="text-muted-foreground text-sm mt-1">{t.photosHint}</p>
+              </div>
+
+              <div className="grid grid-cols-3 gap-2">
+                {photos.map((p, i) => (
+                  <div
+                    key={i}
+                    data-photo-index={i}
+                    draggable
+                    onDragStart={() => handleDragStart(i)}
+                    onDragOver={e => handleDragOver(e, i)}
+                    onDragEnd={handleDragEnd}
+                    onTouchStart={e => handleTouchStart(e, i)}
+                    onTouchMove={handleTouchMove}
+                    onTouchEnd={handleTouchEnd}
+                    style={{ touchAction: "none" }}
+                    className={cn(
+                      "relative aspect-square rounded-xl overflow-hidden bg-muted cursor-grab active:cursor-grabbing transition-opacity",
+                      dragOverIndex === i && dragIndexRef.current !== i ? "opacity-50" : "opacity-100"
+                    )}
+                  >
+                    <img src={getPreview(p)} alt="" className="w-full h-full object-cover pointer-events-none" />
+                    {i === 0 && (
+                      <span className="absolute top-1 left-1 text-[10px] bg-primary text-white px-1.5 py-0.5 rounded font-bold">Cover</span>
+                    )}
+                    <button onClick={() => removePhoto(i)}
+                      className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 flex items-center justify-center">
+                      <X className="w-3 h-3 text-white" />
+                    </button>
+                    <div className="absolute bottom-1 left-1/2 -translate-x-1/2 text-white/60">
+                      <GripVertical className="w-3 h-3" />
+                    </div>
+                  </div>
+                ))}
+                {photos.length < 8 && (
+                  <button onClick={() => fileInputRef.current?.click()} disabled={processingPhotos}
+                    className="aspect-square rounded-xl border-2 border-dashed border-border flex flex-col items-center justify-center gap-1 text-muted-foreground hover:border-primary hover:text-primary transition-colors disabled:opacity-50">
+                    {processingPhotos ? <Loader2 className="w-6 h-6 animate-spin" /> : <Camera className="w-6 h-6" />}
+                    <span className="text-xs font-medium">{processingPhotos ? t.loading : t.addPhoto}</span>
+                  </button>
+                )}
+              </div>
+
+              <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden"
+                onChange={e => { addPhotos(e.target.files); e.target.value = ""; }} />
+
+              <Button size="xl" className="w-full mt-4" disabled={!canNext0 || processingPhotos} onClick={() => setStep(1)}>
+                {t.continue} <ChevronRight className="w-5 h-5 ml-1" />
+              </Button>
+              {!isEditMode && (
+                <Button variant="ghost" className="w-full" onClick={() => setStep(1)}>
+                  {t.skipPhotosForNow}
+                </Button>
+              )}
+            </motion.div>
+          )}
+
+          {/* Step 1: Details */}
+          {step === 1 && (
+            <motion.div key="s1" initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -40 }}
+              className="p-5 space-y-5 pb-10">
+              <h2 className="text-xl font-bold">{t.itemDetails}</h2>
+
+              <div className="space-y-1.5">
+                <Label>{t.titleField}</Label>
+                <Input placeholder="e.g. Vintage Levi's 501 Jeans" value={title} onChange={e => setTitle(e.target.value)} />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>{t.categoryField}</Label>
+                <div className="flex flex-wrap gap-2">
+                  {CATEGORIES.map(cat => (
+                    <Badge key={cat} variant={category === cat ? "pink" : "outline"}
+                      className="cursor-pointer py-1.5 px-3" onClick={() => setCategory(cat)}>
+                      {cat}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>{t.conditionField}</Label>
+                <div className="space-y-2">
+                  {CONDITIONS.map(c => (
+                    <button key={c.value} onClick={() => setCondition(c.value)}
+                      className={cn("w-full flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-all",
+                        condition === c.value ? "border-primary bg-primary/10" : "border-border hover:border-border/80")}>
+                      <div className={cn("w-4 h-4 rounded-full border-2 flex items-center justify-center shrink-0",
+                        condition === c.value ? "border-primary" : "border-muted-foreground")}>
+                        {condition === c.value && <div className="w-2 h-2 rounded-full bg-primary" />}
+                      </div>
+                      <div>
+                        <p className="font-semibold text-sm">{c.label}</p>
+                        <p className="text-xs text-muted-foreground">{c.desc}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex gap-3">
+                <div className="flex-1 space-y-1.5">
+                  <Label>{t.brandField}</Label>
+                  <Input placeholder="e.g. Nike, Zara" value={brand} onChange={e => setBrand(e.target.value)} />
+                </div>
+                <div className="flex-1 space-y-1.5">
+                  <Label>{t.sizeField}</Label>
+                  <Input placeholder="e.g. M, 32, EU42" value={size} onChange={e => setSize(e.target.value)} />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>{t.colorsField}</Label>
+                <div className="flex flex-wrap gap-2">
+                  {COMMON_COLORS.map(c => (
+                    <Badge key={c} variant={colors.includes(c) ? "pink" : "outline"}
+                      className="cursor-pointer py-1 px-2.5" onClick={() => toggleColor(c)}>
+                      {c}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>{t.descriptionField}</Label>
+                <textarea
+                  placeholder="Describe the item — style, fit, any flaws…"
+                  value={description}
+                  onChange={e => setDescription(e.target.value)}
+                  rows={3}
+                  className="w-full rounded-xl border border-border bg-muted px-3 py-2.5 text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+                />
+              </div>
+
+              <Button size="xl" className="w-full" disabled={!canNext1} onClick={() => setStep(2)}>
+                {t.continue} <ChevronRight className="w-5 h-5 ml-1" />
+              </Button>
+            </motion.div>
+          )}
+
+          {/* Step 2: Price */}
+          {step === 2 && (
+            <motion.div key="s2" initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -40 }}
+              className="p-5 space-y-5">
+              <h2 className="text-xl font-bold">{t.setYourPrice}</h2>
+
+              {(() => {
+                const sym = getCurrencySymbol(profile?.currency ?? "USD");
+                return (
+                  <div className="space-y-1.5">
+                    <Label>{t.priceField}</Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-semibold">{sym}</span>
+                      <Input type="number" min="0" step="0.01" placeholder="0.00"
+                        value={price} onChange={e => setPrice(e.target.value)}
+                        className={`${sym.length > 1 ? "pl-10" : "pl-7"} text-lg font-bold`} />
+                    </div>
+                  </div>
+                );
+              })()}
+
+              <Button size="xl" className="w-full" disabled={!canSubmit} onClick={() => setStep(3)}>
+                {t.previewListing} <ChevronRight className="w-5 h-5 ml-1" />
+              </Button>
+            </motion.div>
+          )}
+
+          {/* Step 3: Preview + Publish */}
+          {step === 3 && (
+            <motion.div key="s3" initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -40 }}
+              className="p-5 space-y-5 pb-10">
+              <h2 className="text-xl font-bold">{t.reviewListing}</h2>
+
+              {/* Photo */}
+              {photos[0] && (
+                <div className="rounded-2xl overflow-hidden aspect-square bg-muted">
+                  <img src={getPreview(photos[0])} alt="" className="w-full h-full object-cover" />
+                </div>
+              )}
+
+              {/* Details card */}
+              <div className="rounded-2xl border border-border bg-card p-4 space-y-3">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="font-black text-xl leading-tight">{title}</p>
+                    {brand && <p className="text-muted-foreground text-sm mt-0.5">{brand}</p>}
+                  </div>
+                  <p className="text-2xl font-black gradient-text shrink-0">{formatPrice(parseFloat(price || "0"), profile?.currency ?? "USD")}</p>
+                </div>
+                <p className="text-sm text-muted-foreground">
+                  {[category, condition && CONDITIONS.find(c => c.value === condition)?.label, size && `Size ${size}`].filter(Boolean).join(" · ")}
+                </p>
+                {colors.length > 0 && (
+                  <p className="text-sm text-muted-foreground">{colors.join(", ")}</p>
+                )}
+                {description && (
+                  <p className="text-sm leading-relaxed">{description}</p>
+                )}
+              </div>
+
+              <Button size="xl" className="w-full" disabled={submitting} onClick={handleSubmit}>
+                {submitting
+                  ? <><Loader2 className="w-5 h-5 animate-spin" /> {isEditMode ? t.saving : t.publishing}</>
+                  : isEditMode ? t.saveChanges : t.publishListing
+                }
+              </Button>
+            </motion.div>
+          )}
+
+        </AnimatePresence>
+      </div>
+    </div>
+  );
+}

@@ -3,41 +3,79 @@
 @tailwind utilities;
 
 @layer base {
+  /* ─── LIGHT MODE (eco/natural — matches logo) ─── */
   :root {
-    /* Always dark — Bold & Playful */
-    --background: 0 0% 4%;
-    --foreground: 0 0% 96%;
+    --background: 45 33% 96%;        /* warm cream #F5F2EC */
+    --foreground: 103 20% 14%;       /* dark green-black */
 
-    --card: 0 0% 8%;
-    --card-foreground: 0 0% 96%;
+    --card: 0 0% 100%;
+    --card-foreground: 103 20% 14%;
 
-    --popover: 0 0% 10%;
-    --popover-foreground: 0 0% 96%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 103 20% 14%;
 
-    /* Hot Pink — primary accent */
-    --primary: 328 100% 59%;
+    /* Forest Green — logo color */
+    --primary: 103 44% 29%;
     --primary-foreground: 0 0% 100%;
 
-    /* Electric Lime — secondary accent */
-    --secondary: 80 100% 50%;
-    --secondary-foreground: 0 0% 4%;
+    /* Sage green — secondary */
+    --secondary: 103 25% 88%;
+    --secondary-foreground: 103 20% 14%;
 
-    --muted: 0 0% 12%;
-    --muted-foreground: 0 0% 50%;
+    --muted: 45 20% 92%;
+    --muted-foreground: 103 8% 48%;
 
-    --accent: 0 0% 14%;
-    --accent-foreground: 0 0% 96%;
+    --accent: 103 20% 90%;
+    --accent-foreground: 103 20% 14%;
 
-    --destructive: 0 80% 55%;
+    --destructive: 0 72% 51%;
     --destructive-foreground: 0 0% 100%;
 
-    --border: 0 0% 14%;
-    --input: 0 0% 12%;
-    --ring: 328 100% 59%;
+    --border: 103 12% 85%;
+    --input: 103 12% 90%;
+    --ring: 103 44% 29%;
 
     --radius: 1rem;
 
-    /* Status colors */
+    --success: 142 70% 38%;
+    --warning: 38 100% 50%;
+    --info: 210 90% 50%;
+  }
+
+  /* ─── DARK MODE (eco-dark — dark green tones) ─── */
+  .dark {
+    --background: 103 15% 6%;        /* very dark green-black */
+    --foreground: 80 15% 93%;        /* warm off-white */
+
+    --card: 103 12% 10%;
+    --card-foreground: 80 15% 93%;
+
+    --popover: 103 12% 12%;
+    --popover-foreground: 80 15% 93%;
+
+    /* Bright forest green for dark bg */
+    --primary: 103 52% 50%;
+    --primary-foreground: 0 0% 100%;
+
+    /* Darker sage for dark bg */
+    --secondary: 88 40% 36%;
+    --secondary-foreground: 0 0% 100%;
+
+    --muted: 103 8% 16%;
+    --muted-foreground: 103 5% 55%;
+
+    --accent: 103 8% 18%;
+    --accent-foreground: 80 15% 93%;
+
+    --destructive: 0 72% 55%;
+    --destructive-foreground: 0 0% 100%;
+
+    --border: 103 8% 18%;
+    --input: 103 8% 16%;
+    --ring: 103 52% 50%;
+
+    --radius: 1rem;
+
     --success: 142 70% 45%;
     --warning: 38 100% 55%;
     --info: 210 90% 60%;
@@ -46,10 +84,6 @@
   * {
     @apply border-border;
     box-sizing: border-box;
-  }
-
-  html {
-    color-scheme: dark;
   }
 
   body {
@@ -72,25 +106,25 @@
 
   /* Selection color */
   ::selection {
-    background: hsl(328 100% 59% / 0.3);
-    color: hsl(0 0% 100%);
+    background: hsl(var(--primary) / 0.3);
+    color: hsl(var(--foreground));
   }
 }
 
 @layer components {
   /* Glassmorphism card */
   .glass-card {
-    @apply bg-card/80 backdrop-blur-md border border-white/5;
+    @apply bg-card/80 backdrop-blur-md border border-border;
   }
 
-  /* Glow effects */
-  .glow-pink {
-    box-shadow: 0 0 30px hsl(328 100% 59% / 0.4), 0 0 60px hsl(328 100% 59% / 0.15);
+  /* Glow effects — use CSS vars so they switch with theme */
+  .glow-primary {
+    box-shadow: 0 0 30px hsl(var(--primary) / 0.4), 0 0 60px hsl(var(--primary) / 0.15);
   }
 
-  .glow-lime {
-    box-shadow: 0 0 30px hsl(80 100% 50% / 0.4), 0 0 60px hsl(80 100% 50% / 0.15);
-  }
+  /* Legacy aliases — still used in some pages */
+  .glow-pink { box-shadow: 0 0 30px hsl(var(--primary) / 0.4), 0 0 60px hsl(var(--primary) / 0.15); }
+  .glow-lime { box-shadow: 0 0 30px hsl(var(--secondary) / 0.4), 0 0 60px hsl(var(--secondary) / 0.15); }
 
   /* Gradient text */
   .gradient-text {
@@ -112,7 +146,7 @@
     background-image: linear-gradient(
       90deg,
       transparent 0%,
-      hsl(0 0% 100% / 0.05) 50%,
+      hsl(var(--foreground) / 0.04) 50%,
       transparent 100%
     );
     background-size: 200% 100%;
@@ -148,7 +182,7 @@
   textarea:focus,
   select:focus {
     outline: none;
-    box-shadow: 0 0 0 2px hsl(328 100% 59% / 0.5);
+    box-shadow: 0 0 0 2px hsl(var(--ring) / 0.5);
   }
 }
 
