@@ -5,13 +5,11 @@ import rewearLogo from "@/assets/rewear_logo_circle_transparent.png";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useNavigate } from "react-router-dom";
 import { toast } from "sonner";
-import { getInitials } from "@/lib/utils";
 import imageCompression from "browser-image-compression";
 
 const STEPS = ["Welcome", "Your Name", "Bio", "Avatar", "Location"];

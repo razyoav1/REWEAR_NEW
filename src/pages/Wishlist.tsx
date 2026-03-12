@@ -279,7 +279,7 @@ export default function Wishlist() {
     return () => clearTimeout(tid);
   }, [inviteSearch, user?.id]);
 
-  async function handleInvite(invitedUserId: string, invitedUserName: string) {
+  async function handleInvite(invitedUserId: string, _invitedUserName: string) {
     if (!activeId || !user) return;
     setInviting(invitedUserId);
     const { error } = await supabase.from("wishlist_invites").upsert(

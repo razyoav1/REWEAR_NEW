@@ -22,6 +22,7 @@ interface Report {
   resolution_note: string | null;
   created_at: string;
   reporter_name?: string;
+  entity_type?: string;
 }
 
 const STATUS_STYLES: Record<Status, string> = {

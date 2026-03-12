@@ -31,13 +31,6 @@ interface MyListing {
   created_at: string;
 }
 
-const STATUS_STYLES: Record<ListingStatus, string> = {
-  available: "bg-secondary/20 text-secondary",
-  reserved: "bg-yellow-500/20 text-yellow-400",
-  sold: "bg-muted text-muted-foreground",
-  hidden: "bg-destructive/20 text-destructive",
-};
-
 export default function Profile() {
   const navigate = useNavigate();
   const { user, profile, refreshProfile } = useAuth();
@@ -358,7 +351,6 @@ export default function Profile() {
         <FollowersSheet
           open={showFollowersSheet}
           onClose={() => setShowFollowersSheet(false)}
-          userId={user.id}
           tab={followersTab}
           fetchFollowers={fetchFollowers}
           fetchFollowing={fetchFollowing}
@@ -369,11 +361,10 @@ export default function Profile() {
 }
 
 function FollowersSheet({
-  open, onClose, userId, tab, fetchFollowers, fetchFollowing,
+  open, onClose, tab, fetchFollowers, fetchFollowing,
 }: {
   open: boolean;
   onClose: () => void;
-  userId: string;
   tab: "followers" | "following";
   fetchFollowers: () => Promise<FollowUser[]>;
   fetchFollowing: () => Promise<FollowUser[]>;

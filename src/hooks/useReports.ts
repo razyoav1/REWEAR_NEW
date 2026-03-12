@@ -15,13 +15,16 @@ export const REPORT_REASONS = [
   { value: "other", label: "Other" },
 ];
 
+export type ReportStatus = "open" | "under_review" | "resolved" | "dismissed";
+
 export interface MyReport {
   id: string;
   entity_type: ReportEntityType;
   entity_id: string;
   reason: string;
   details: string | null;
-  status: string;
+  status: ReportStatus;
+  resolution_note: string | null;
   created_at: string;
 }
 
@@ -54,7 +57,8 @@ export function useReports() {
       entity_id: (r.listing_id ?? r.reported_user_id ?? r.review_id ?? r.conversation_id ?? "") as string,
       reason: r.reason as string,
       details: r.details as string | null,
-      status: "open",
+      status: (r.status ?? "open") as ReportStatus,
+      resolution_note: (r.resolution_note ?? null) as string | null,
       created_at: r.created_at as string,
     }));
     setMyReports(normalized);

@@ -54,13 +54,6 @@ export default function Auth() {
     });
   }
 
-  async function handleApple() {
-    await supabase.auth.signInWithOAuth({
-      provider: "apple",
-      options: { redirectTo: `${window.location.origin}/` },
-    });
-  }
-
   return (
     <div className="min-h-screen bg-background flex flex-col">
       {/* Background glow */}

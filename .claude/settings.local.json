@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(supabase --version)",
+      "Bash(npx supabase --version)",
+      "Bash(export PATH=\"$PATH:/c/Program Files/nodejs\")",
+      "Bash(npm run build)",
+      "Bash(grep -l \"recently_seen\" \"c:/Users/yoavr/Desktop/VSProjects/RewearNew/supabase/migrations/\"*.sql)",
+      "Bash(supabase login --help)",
+      "Bash(supabase projects list)"
+    ]
+  }
+}

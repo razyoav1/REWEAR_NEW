@@ -57,8 +57,6 @@ export function BottomNav() {
   const navigate = useNavigate();
   const { t } = useLanguage();
   const { profile } = useAuth();
-  const unreadCount = useUnreadCount();
-
   const NAV_ITEMS = [
     { to: "/", icon: Compass, label: t.discover },
     { to: "/search", icon: Search, label: t.search },

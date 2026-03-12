@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Rewear</string>
+    <string name="title_activity_main">Rewear</string>
+    <string name="package_name">com.rewear.app</string>
+    <string name="custom_url_scheme">com.rewear.app</string>
+</resources>
