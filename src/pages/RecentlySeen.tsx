@@ -39,10 +39,22 @@ export default function RecentlySeen() {
   useEffect(() => {
     if (!user) return;
     async function load() {
+      const todayStart = new Date();
+      todayStart.setHours(0, 0, 0, 0);
+      const todayStr = todayStart.toISOString();
+
+      // Delete rows older than today
+      await supabase
+        .from("recently_seen")
+        .delete()
+        .eq("user_id", user!.id)
+        .lt("seen_at", todayStr);
+
       const { data } = await supabase
         .from("recently_seen")
         .select("listing_id, seen_at, listing:listing_id(id, title, price, currency, photos, status)")
         .eq("user_id", user!.id)
+        .gte("seen_at", todayStr)
         .order("seen_at", { ascending: false })
         .limit(60);
       setItems((data as unknown as SeenRow[]) ?? []);

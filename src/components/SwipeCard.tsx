@@ -14,9 +14,11 @@ const CATEGORY_ICONS: Record<string, string> = {
   Dresses: "👗",
   Outerwear: "🧥",
   Activewear: "🏃",
+  Sports: "⚽",
   Shoes: "👟",
   Accessories: "👜",
   Kids: "🧒",
+  Babies: "🍼",
   Other: "📦",
 };
 
@@ -177,12 +179,21 @@ export function SwipeCard({ listing, userCurrency, onSwipeLeft, onSwipeRight, on
         <div className="absolute bottom-0 left-0 right-0 p-5 space-y-3">
           {listing.seller && (
             <div className="flex items-center gap-2.5">
-              <Avatar className="w-9 h-9 border-2 border-white/30">
-                <AvatarImage src={listing.seller.avatarUrl} />
-                <AvatarFallback className="bg-primary/30 text-white text-sm font-bold">
-                  {listing.seller.name?.[0]?.toUpperCase()}
-                </AvatarFallback>
-              </Avatar>
+              <div className="relative shrink-0">
+                <Avatar className="w-9 h-9 border-2 border-white/30">
+                  <AvatarImage src={listing.seller.avatarUrl} />
+                  <AvatarFallback className="bg-primary/30 text-white text-sm font-bold">
+                    {listing.seller.name?.[0]?.toUpperCase()}
+                  </AvatarFallback>
+                </Avatar>
+                {/* Activity dot */}
+                <span className={cn(
+                  "absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white/70",
+                  listing.seller.lastSeenAt && (Date.now() - new Date(listing.seller.lastSeenAt).getTime()) < 48 * 60 * 60 * 1000
+                    ? "bg-green-400"
+                    : "bg-neutral-400"
+                )} />
+              </div>
               <div>
                 <p className="text-white font-semibold text-sm leading-none">{listing.seller.name}</p>
                 {(listing.seller.ratingAvg ?? 0) > 0 && (

@@ -116,6 +116,7 @@ export function useListings(options: UseListingsOptions = {}) {
             verificationStatus: "unverified" as const,
             ratingAvg: s.rating_avg ?? undefined,
             ratingCount: s.rating_count ?? undefined,
+            lastSeenAt: s.last_seen_at ?? undefined,
             createdAt: s.created_at,
           },
         ]) ?? []

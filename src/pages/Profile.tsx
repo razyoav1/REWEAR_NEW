@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { Settings, Star, Package, Heart, Plus, Loader2, LogOut, ChevronRight, Edit2, Check, X, Camera, ShieldCheck } from "lucide-react";
+import { Settings, Star, Package, Heart, Plus, Loader2, ChevronRight, Edit2, Check, X, Camera, ShieldCheck, Bell } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -17,6 +17,7 @@ import { CONDITION_LABELS, type ListingCondition, type ListingStatus } from "@/t
 import { cn } from "@/lib/utils";
 import { useFollows, type FollowUser } from "@/hooks/useFollows";
 import { useAdmin } from "@/hooks/useAdmin";
+import { useNotifications } from "@/contexts/NotificationsContext";
 import imageCompression from "browser-image-compression";
 
 interface MyListing {
@@ -59,6 +60,7 @@ export default function Profile() {
 
   const { followerCount, followingCount, fetchFollowers, fetchFollowing } = useFollows(user?.id);
   const { isAdmin } = useAdmin();
+  const { unreadCount } = useNotifications();
   const [showFollowersSheet, setShowFollowersSheet] = useState(false);
   const [followersTab, setFollowersTab] = useState<"followers" | "following">("followers");
 
@@ -123,11 +125,6 @@ export default function Profile() {
     }
   }
 
-  async function handleSignOut() {
-    await supabase.auth.signOut();
-    navigate("/auth");
-  }
-
   const activeListings = listings.filter(l => l.status === "available" || l.status === "reserved" || l.status === "hidden");
   const soldListings = listings.filter(l => l.status === "sold");
   const displayedListings = activeTab === "active" ? activeListings : soldListings;
@@ -138,11 +135,23 @@ export default function Profile() {
 
   return (
     <div className="min-h-screen bg-background pb-24">
-      <div className="flex items-center justify-between px-5 pt-14 pb-2">
-        <h1 className="text-2xl font-bold">{t.profile}</h1>
+      <div className="flex items-center pl-5 pr-3 pt-14 pb-2">
+        <h1 className="flex-1 text-2xl font-bold">{t.profile}</h1>
         <Button variant="ghost" size="icon" onClick={() => navigate("/settings")}>
           <Settings className="w-5 h-5" />
         </Button>
+        <button
+          onClick={() => navigate("/notifications")}
+          className="relative w-9 h-9 rounded-full flex items-center justify-center hover:bg-accent transition-colors"
+          aria-label="Notifications"
+        >
+          <Bell className="w-5 h-5" />
+          {unreadCount > 0 && (
+            <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 rounded-full bg-primary text-primary-foreground text-[10px] font-bold flex items-center justify-center px-0.5">
+              {unreadCount > 99 ? "99+" : unreadCount}
+            </span>
+          )}
+        </button>
       </div>
 
       <motion.div initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }}
@@ -253,19 +262,13 @@ export default function Profile() {
           <Button variant="outline" className="flex-1" onClick={() => navigate("/create")}>
             <Plus className="w-4 h-4" /> {t.sellItem}
           </Button>
-          <Button variant="ghost" className="flex-1 text-muted-foreground" onClick={handleSignOut}>
-            <LogOut className="w-4 h-4" /> {t.signOut}
-          </Button>
         </div>
       </motion.div>
 
       {/* Quick links */}
       <div className="px-5 space-y-2 mb-6">
         {[
-          { label: t.followingActivity, to: "/activity" },
           { label: t.messages, to: "/messages" },
-          { label: t.myReviews, to: "/my-reviews" },
-          { label: t.settings, to: "/settings" },
         ].map(link => (
           <button key={link.to} onClick={() => navigate(link.to)}
             className="w-full flex items-center justify-between px-4 py-3 rounded-2xl bg-card border border-border hover:bg-muted/50 transition-colors">

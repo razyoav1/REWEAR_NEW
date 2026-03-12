@@ -22,55 +22,48 @@ $$;
 -- ── clothing_listings ────────────────────────────────────────────────────────
 DROP POLICY IF EXISTS "Active accounts only: insert listing" ON public.clothing_listings;
 CREATE POLICY "Active accounts only: insert listing"
-  ON public.clothing_listings FOR INSERT
-  AS RESTRICTIVE
+  ON public.clothing_listings AS RESTRICTIVE FOR INSERT
   TO authenticated
   WITH CHECK (public.is_account_active());
 
 -- ── messages ─────────────────────────────────────────────────────────────────
 DROP POLICY IF EXISTS "Active accounts only: insert message" ON public.messages;
 CREATE POLICY "Active accounts only: insert message"
-  ON public.messages FOR INSERT
-  AS RESTRICTIVE
+  ON public.messages AS RESTRICTIVE FOR INSERT
   TO authenticated
   WITH CHECK (public.is_account_active());
 
 -- ── reviews ──────────────────────────────────────────────────────────────────
 DROP POLICY IF EXISTS "Active accounts only: insert review" ON public.reviews;
 CREATE POLICY "Active accounts only: insert review"
-  ON public.reviews FOR INSERT
-  AS RESTRICTIVE
+  ON public.reviews AS RESTRICTIVE FOR INSERT
   TO authenticated
   WITH CHECK (public.is_account_active());
 
 -- ── wishlist_items ───────────────────────────────────────────────────────────
 DROP POLICY IF EXISTS "Active accounts only: insert wishlist item" ON public.wishlist_items;
 CREATE POLICY "Active accounts only: insert wishlist item"
-  ON public.wishlist_items FOR INSERT
-  AS RESTRICTIVE
+  ON public.wishlist_items AS RESTRICTIVE FOR INSERT
   TO authenticated
   WITH CHECK (public.is_account_active());
 
 -- ── wishlists ────────────────────────────────────────────────────────────────
 DROP POLICY IF EXISTS "Active accounts only: insert wishlist" ON public.wishlists;
 CREATE POLICY "Active accounts only: insert wishlist"
-  ON public.wishlists FOR INSERT
-  AS RESTRICTIVE
+  ON public.wishlists AS RESTRICTIVE FOR INSERT
   TO authenticated
   WITH CHECK (public.is_account_active());
 
 -- ── wishlist_invites ─────────────────────────────────────────────────────────
 DROP POLICY IF EXISTS "Active accounts only: insert wishlist invite" ON public.wishlist_invites;
 CREATE POLICY "Active accounts only: insert wishlist invite"
-  ON public.wishlist_invites FOR INSERT
-  AS RESTRICTIVE
+  ON public.wishlist_invites AS RESTRICTIVE FOR INSERT
   TO authenticated
   WITH CHECK (public.is_account_active());
 
 -- ── reports ──────────────────────────────────────────────────────────────────
 DROP POLICY IF EXISTS "Active accounts only: insert report" ON public.reports;
 CREATE POLICY "Active accounts only: insert report"
-  ON public.reports FOR INSERT
-  AS RESTRICTIVE
+  ON public.reports AS RESTRICTIVE FOR INSERT
   TO authenticated
   WITH CHECK (public.is_account_active());

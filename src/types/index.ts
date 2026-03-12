@@ -8,9 +8,11 @@ export type ClothingCategory =
   | "Dresses"
   | "Outerwear"
   | "Activewear"
+  | "Sports"
   | "Shoes"
   | "Accessories"
   | "Kids"
+  | "Babies"
   | "Other";
 
 export interface User {
@@ -27,6 +29,7 @@ export interface User {
   ratingCount?: number;
   followerCount?: number;
   followingCount?: number;
+  lastSeenAt?: string;
   createdAt: string;
 }
 
@@ -116,6 +119,7 @@ export interface UserProfile {
   account_status?: string;
   suspension_reason?: string;
   suspended_at?: string;
+  last_seen_at?: string;
   created_at: string;
 }
 
@@ -135,5 +139,5 @@ export const CONDITION_COLORS: Record<ListingCondition, string> = {
 
 export const CATEGORIES: ClothingCategory[] = [
   "Tops", "Bottoms", "Dresses", "Outerwear",
-  "Activewear", "Shoes", "Accessories", "Kids", "Other",
+  "Activewear", "Sports", "Shoes", "Accessories", "Kids", "Babies", "Other",
 ];

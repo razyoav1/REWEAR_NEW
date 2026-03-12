@@ -68,6 +68,15 @@ function dataUrlToPhotoEntry(dataUrl: string, index: number): PhotoEntry {
   return { kind: "new", file, preview: dataUrl };
 }
 
+function dataUrlToBlob(dataUrl: string): Blob {
+  const [header, b64] = dataUrl.split(",");
+  const mime = header.match(/:(.*?);/)![1];
+  const binary = atob(b64);
+  const arr = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) arr[i] = binary.charCodeAt(i);
+  return new Blob([arr], { type: mime });
+}
+
 async function compressToDataUrl(src: string): Promise<string> {
   return new Promise((resolve) => {
     const img = new Image();
@@ -101,6 +110,7 @@ export default function CreateListing() {
   const [submitting, setSubmitting] = useState(false);
   const [loadingEdit, setLoadingEdit] = useState(isEditMode);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
   const [showDraftBanner, setShowDraftBanner] = useState(() =>
     !isEditMode && (!!loadDraft(draftKey) || loadDraftPhotos(draftPhotosKey).length > 0)
   );
@@ -122,7 +132,6 @@ export default function CreateListing() {
   const dragIndexRef = useRef<number | null>(null);
   const dragOverIndexRef = useRef<number | null>(null);
   const [dragOverIndex, setDragOverIndex] = useState<number | null>(null);
-  const [draggingIndex, setDraggingIndex] = useState<number | null>(null);
   // Skip the first effect run so we don't delete saved draft photos on mount
   const photoEffectInitialized = useRef(false);
 
@@ -247,7 +256,7 @@ export default function CreateListing() {
   function handleDragStart(i: number) {
     dragIndexRef.current = i;
     dragOverIndexRef.current = i;
-    setDraggingIndex(i);
+    setDragOverIndex(i);
   }
 
   function handleDragOver(e: React.DragEvent, i: number) {
@@ -261,13 +270,13 @@ export default function CreateListing() {
     dragIndexRef.current = null;
     dragOverIndexRef.current = null;
     setDragOverIndex(null);
-    setDraggingIndex(null);
+    setDragOverIndex(null);
   }
 
   // Touch drag handlers
-  function handleTouchStart(e: React.TouchEvent, i: number) {
+  function handleTouchStart(_e: React.TouchEvent, i: number) {
     dragIndexRef.current = i;
-    setDraggingIndex(i);
+    setDragOverIndex(i);
   }
 
   function handleTouchMove(e: React.TouchEvent) {
@@ -291,7 +300,7 @@ export default function CreateListing() {
     dragIndexRef.current = null;
     dragOverIndexRef.current = null;
     setDragOverIndex(null);
-    setDraggingIndex(null);
+    setDragOverIndex(null);
   }
 
   function toggleColor(color: string) {
@@ -312,11 +321,12 @@ export default function CreateListing() {
         if (photo.kind === "existing") {
           photoUrls.push(photo.url);
         } else {
-          const ext = photo.file.name.split(".").pop();
-          const path = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.${ext}`;
+          // Upload the compressed preview (data URL → blob) instead of the original file
+          const blob = dataUrlToBlob(photo.preview);
+          const path = `${user.id}/${Date.now()}-${Math.random().toString(36).slice(2)}.jpg`;
           const { error: uploadErr } = await supabase.storage
             .from("listing-photos")
-            .upload(path, photo.file, { cacheControl: "3600" });
+            .upload(path, blob, { cacheControl: "3600", contentType: "image/jpeg" });
           if (uploadErr) throw uploadErr;
           const { data: { publicUrl } } = supabase.storage.from("listing-photos").getPublicUrl(path);
           photoUrls.push(publicUrl);
@@ -325,7 +335,7 @@ export default function CreateListing() {
 
       const listingData = {
         title: title.trim(),
-        description: description.trim() || null,
+        description: description.trim() || "",
         category,
         brand: brand.trim() || null,
         condition,
@@ -345,20 +355,21 @@ export default function CreateListing() {
         toast.success(t.listingUpdated);
         navigate("/profile");
       } else {
-        const { data, error } = await supabase.from("clothing_listings").insert({
+        const { error } = await supabase.from("clothing_listings").insert({
           ...listingData,
           seller_id: user.id,
           location_lat: profile?.location_lat ?? null,
           location_lng: profile?.location_lng ?? null,
           status: "available",
-        }).select("id").single();
+        });
         if (error) throw error;
         clearDraft();
         toast.success(t.listingPublished);
         navigate("/profile");
       }
     } catch (err: unknown) {
-      toast.error(err instanceof Error ? err.message : "Failed to save listing");
+      const msg = (err instanceof Error ? err.message : (err as any)?.message) || "Failed to save listing";
+      toast.error(msg);
     } finally {
       setSubmitting(false);
     }
@@ -466,16 +477,31 @@ export default function CreateListing() {
                     </div>
                   </div>
                 ))}
-                {photos.length < 8 && (
-                  <button onClick={() => fileInputRef.current?.click()} disabled={processingPhotos}
-                    className="aspect-square rounded-xl border-2 border-dashed border-border flex flex-col items-center justify-center gap-1 text-muted-foreground hover:border-primary hover:text-primary transition-colors disabled:opacity-50">
-                    {processingPhotos ? <Loader2 className="w-6 h-6 animate-spin" /> : <Camera className="w-6 h-6" />}
-                    <span className="text-xs font-medium">{processingPhotos ? t.loading : t.addPhoto}</span>
-                  </button>
+                {photos.length < 8 && !processingPhotos && (
+                  <>
+                    <button onClick={() => cameraInputRef.current?.click()}
+                      className="aspect-square rounded-xl border-2 border-dashed border-border flex flex-col items-center justify-center gap-1 text-muted-foreground hover:border-primary hover:text-primary transition-colors">
+                      <Camera className="w-6 h-6" />
+                      <span className="text-xs font-medium">{t.takePhoto}</span>
+                    </button>
+                    <button onClick={() => fileInputRef.current?.click()}
+                      className="aspect-square rounded-xl border-2 border-dashed border-border flex flex-col items-center justify-center gap-1 text-muted-foreground hover:border-primary hover:text-primary transition-colors">
+                      <span className="text-2xl">🖼️</span>
+                      <span className="text-xs font-medium">{t.addPhoto}</span>
+                    </button>
+                  </>
+                )}
+                {processingPhotos && (
+                  <div className="aspect-square rounded-xl border-2 border-dashed border-border flex flex-col items-center justify-center gap-1 text-muted-foreground">
+                    <Loader2 className="w-6 h-6 animate-spin" />
+                    <span className="text-xs font-medium">{t.loading}</span>
+                  </div>
                 )}
               </div>
 
               <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden"
+                onChange={e => { addPhotos(e.target.files); e.target.value = ""; }} />
+              <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden"
                 onChange={e => { addPhotos(e.target.files); e.target.value = ""; }} />
 
               <Button size="xl" className="w-full mt-4" disabled={!canNext0 || processingPhotos} onClick={() => setStep(1)}>

@@ -57,6 +57,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (session?.user) {
           setProfileFetched(false); // reset so route guards wait for the new profile
           fetchProfile(session.user.id);
+          // Update last_seen_at on every sign-in / session restore
+          supabase.from("users").update({ last_seen_at: new Date().toISOString() }).eq("id", session.user.id)
+            .then(({ error }) => { if (error) console.error("last_seen_at update failed:", error.message); });
         } else {
           setProfile(null);
           setProfileFetched(true);
