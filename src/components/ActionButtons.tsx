@@ -61,7 +61,7 @@ export function ActionButtons({ onSkip, onSave, onChat, onUndo, canUndo = false,
       {/* Save to wishlist (star/heart up) */}
       <ActionBtn
         onClick={onSave}
-        className="w-16 h-16 bg-card border-secondary/60 text-secondary hover:bg-secondary/10 hover:border-secondary hover:shadow-[0_0_20px_hsl(80_100%_50%_/_0.3)]"
+        className="w-16 h-16 bg-card border-primary/60 text-primary hover:bg-primary/10 hover:border-primary hover:shadow-[0_0_20px_hsl(var(--primary)/_0.3)]"
       >
         <Heart className="w-7 h-7" />
       </ActionBtn>

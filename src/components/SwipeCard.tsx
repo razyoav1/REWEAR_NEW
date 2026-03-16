@@ -231,6 +231,9 @@ export function SwipeCard({ listing, userCurrency, onSwipeLeft, onSwipeRight, on
             </div>
             <div className="text-right shrink-0">
               <p className="text-white font-black text-3xl leading-none">{displayPrice(listing.price, listing.currency, userCurrency)}</p>
+              {listing.priceFlexible && (
+                <span className="text-[10px] font-semibold bg-white/20 text-white px-1.5 py-0.5 rounded-md backdrop-blur-sm">Flexible</span>
+              )}
             </div>
           </div>
         </div>

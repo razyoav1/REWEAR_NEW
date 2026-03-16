@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useListings } from "@/hooks/useListings";
-import { CATEGORIES, CONDITION_LABELS, type ClothingCategory, type ListingCondition } from "@/types";
+import { CATEGORIES, GENDERS, CONDITION_LABELS, type ClothingCategory, type ListingCondition } from "@/types";
 import { formatDistance } from "@/lib/distance";
 import { displayPrice, getInitials } from "@/lib/utils";
 import { useAuth } from "@/contexts/AuthContext";
@@ -54,6 +54,7 @@ export default function Search() {
   const [condition, setCondition] = useState<ListingCondition | "">("");
   const [priceMin, setPriceMin] = useState<number | undefined>();
   const [priceMax, setPriceMax] = useState<number | undefined>();
+  const [genderFilter, setGenderFilter] = useState<string>("all");
   const [showFilters, setShowFilters] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout>>();
 
@@ -75,6 +76,7 @@ export default function Search() {
     condition: condition || undefined,
     priceMin,
     priceMax,
+    genderFilter,
     excludeOwnListings: true,
   });
 
@@ -193,6 +195,21 @@ export default function Search() {
             </button>
           ))}
         </div>
+
+        {/* Gender tabs — listings only */}
+        {mode === "listings" && (
+          <div className="flex gap-1">
+            {GENDERS.filter(g => g.value !== "unisex").map(g => (
+              <button key={g.value} onClick={() => setGenderFilter(g.value)}
+                className={cn("flex-1 py-1.5 rounded-xl text-sm font-bold transition-all",
+                  genderFilter === g.value
+                    ? "bg-primary text-white"
+                    : "bg-muted text-muted-foreground hover:text-foreground")}>
+                {g.label}
+              </button>
+            ))}
+          </div>
+        )}
 
         {/* Category chips — listings only */}
         {mode === "listings" && (

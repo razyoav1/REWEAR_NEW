@@ -10,7 +10,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { toast } from "sonner";
-import { CATEGORIES, type ClothingCategory, type ListingCondition } from "@/types";
+import { CATEGORIES, GENDERS, type ClothingCategory, type ClothingGender, type ListingCondition } from "@/types";
 import { cn, getCurrencySymbol, formatPrice } from "@/lib/utils";
 
 const CONDITIONS: { value: ListingCondition; label: string; desc: string }[] = [
@@ -42,6 +42,8 @@ interface DraftData {
   colors: string[];
   description: string;
   price: string;
+  priceFlexible: boolean | null;
+  gender: ClothingGender | "";
 }
 
 function loadDraft(key: string): DraftData | null {
@@ -126,6 +128,10 @@ export default function CreateListing() {
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
 
+  const [priceFlexible, setPriceFlexible] = useState<boolean | null>(null);
+  const [gender, setGender] = useState<ClothingGender | "">("");
+  const [validationError, setValidationError] = useState("");
+
   const [processingPhotos, setProcessingPhotos] = useState(false);
 
   // Drag-and-drop state (mouse + touch)
@@ -157,6 +163,8 @@ export default function CreateListing() {
       setColors(data.colors ?? []);
       setDescription(data.description ?? "");
       setPrice(String(data.price ?? ""));
+      setPriceFlexible(data.price_flexible ?? null);
+      setGender((data.gender as ClothingGender) ?? "");
       const existingPhotos: PhotoEntry[] = (data.photos ?? []).map((url: string) => ({
         kind: "existing" as const,
         url,
@@ -170,10 +178,10 @@ export default function CreateListing() {
   // Auto-save text fields (create mode only)
   useEffect(() => {
     if (isEditMode) return;
-    const draft: DraftData = { title, category, brand, condition, size, colors, description, price };
+    const draft: DraftData = { title, category, brand, condition, size, colors, description, price, priceFlexible, gender };
     const hasContent = title || category || brand || condition || size || colors.length || description || price;
     if (hasContent) localStorage.setItem(draftKey, JSON.stringify(draft));
-  }, [isEditMode, draftKey, title, category, brand, condition, size, colors, description, price]);
+  }, [isEditMode, draftKey, title, category, brand, condition, size, colors, description, price, priceFlexible, gender]);
 
   // Auto-save photos as data URLs (create mode only)
   // Skip the very first run to avoid deleting draft photos before user can restore them
@@ -200,6 +208,8 @@ export default function CreateListing() {
       setColors(draft.colors);
       setDescription(draft.description);
       setPrice(draft.price);
+      setPriceFlexible(draft.priceFlexible ?? null);
+      setGender((draft.gender as ClothingGender) ?? "");
     }
     if (savedPhotos.length > 0) setPhotos(savedPhotos.map(dataUrlToPhotoEntry));
     setShowDraftBanner(false);
@@ -307,9 +317,33 @@ export default function CreateListing() {
     setColors(prev => prev.includes(color) ? prev.filter(c => c !== color) : [...prev, color]);
   }
 
-  const canNext0 = photos.length > 0;
-  const canNext1 = title.trim() && category && condition;
-  const canSubmit = price && parseFloat(price) > 0;
+  // Clear validation error whenever the step changes
+  useEffect(() => {
+    setValidationError("");
+  }, [step]);
+
+  function validateStep0(): string {
+    if (photos.length === 0) return "Please add at least one photo to continue";
+    return "";
+  }
+
+  function validateStep1(): string {
+    const missing: string[] = [];
+    if (!title.trim()) missing.push("Title");
+    if (!category) missing.push("Category");
+    if (!condition) missing.push("Condition");
+    if (!gender) missing.push("Gender");
+    if (missing.length > 0) return `Please fill in: ${missing.join(", ")}`;
+    return "";
+  }
+
+  function validateStep2(): string {
+    const missing: string[] = [];
+    if (!price || parseFloat(price) <= 0) missing.push("Price");
+    if (priceFlexible === null) missing.push("Price flexibility");
+    if (missing.length > 0) return `Please fill in: ${missing.join(", ")}`;
+    return "";
+  }
 
   async function handleSubmit() {
     if (!user) return;
@@ -344,6 +378,8 @@ export default function CreateListing() {
         price: parseFloat(price),
         currency: profile?.currency ?? "USD",
         photos: photoUrls,
+        gender: gender || "unisex",
+        price_flexible: priceFlexible ?? false,
       };
 
       if (isEditMode) {
@@ -504,7 +540,15 @@ export default function CreateListing() {
               <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden"
                 onChange={e => { addPhotos(e.target.files); e.target.value = ""; }} />
 
-              <Button size="xl" className="w-full mt-4" disabled={!canNext0 || processingPhotos} onClick={() => setStep(1)}>
+              {validationError && (
+                <p className="text-destructive text-sm font-medium text-center">{validationError}</p>
+              )}
+              <Button size="xl" className="w-full mt-4" disabled={processingPhotos} onClick={() => {
+                const err = validateStep0();
+                if (err) { setValidationError(err); return; }
+                setValidationError("");
+                setStep(1);
+              }}>
                 {t.continue} <ChevronRight className="w-5 h-5 ml-1" />
               </Button>
               {!isEditMode && (
@@ -524,6 +568,19 @@ export default function CreateListing() {
               <div className="space-y-1.5">
                 <Label>{t.titleField}</Label>
                 <Input placeholder="e.g. Vintage Levi's 501 Jeans" value={title} onChange={e => setTitle(e.target.value)} />
+              </div>
+
+              <div className="space-y-1.5">
+                <Label>Gender <span className="text-destructive">*</span></Label>
+                <div className="grid grid-cols-3 gap-2">
+                  {GENDERS.filter(g => g.value !== "all").map(g => (
+                    <button key={g.value} onClick={() => setGender(g.value as ClothingGender)}
+                      className={cn("p-3 rounded-2xl border-2 text-center transition-all",
+                        gender === g.value ? "border-primary bg-primary/10" : "border-border hover:border-border/80")}>
+                      <p className="font-bold text-sm">{g.label}</p>
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div className="space-y-1.5">
@@ -592,7 +649,15 @@ export default function CreateListing() {
                 />
               </div>
 
-              <Button size="xl" className="w-full" disabled={!canNext1} onClick={() => setStep(2)}>
+              {validationError && (
+                <p className="text-destructive text-sm font-medium text-center">{validationError}</p>
+              )}
+              <Button size="xl" className="w-full" onClick={() => {
+                const err = validateStep1();
+                if (err) { setValidationError(err); return; }
+                setValidationError("");
+                setStep(2);
+              }}>
                 {t.continue} <ChevronRight className="w-5 h-5 ml-1" />
               </Button>
             </motion.div>
@@ -603,6 +668,32 @@ export default function CreateListing() {
             <motion.div key="s2" initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -40 }}
               className="p-5 space-y-5">
               <h2 className="text-xl font-bold">{t.setYourPrice}</h2>
+
+              <div className="space-y-1.5">
+                <Label>Price flexibility <span className="text-destructive">*</span></Label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => setPriceFlexible(false)}
+                    className={cn(
+                      "p-4 rounded-2xl border-2 text-center transition-all",
+                      priceFlexible === false ? "border-primary bg-primary/10" : "border-border hover:border-border/80"
+                    )}
+                  >
+                    <p className="font-bold text-sm">Fixed</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Price is final</p>
+                  </button>
+                  <button
+                    onClick={() => setPriceFlexible(true)}
+                    className={cn(
+                      "p-4 rounded-2xl border-2 text-center transition-all",
+                      priceFlexible === true ? "border-primary bg-primary/10" : "border-border hover:border-border/80"
+                    )}
+                  >
+                    <p className="font-bold text-sm">Flexible</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">Open to offers</p>
+                  </button>
+                </div>
+              </div>
 
               {(() => {
                 const sym = getCurrencySymbol(profile?.currency ?? "USD");
@@ -619,7 +710,15 @@ export default function CreateListing() {
                 );
               })()}
 
-              <Button size="xl" className="w-full" disabled={!canSubmit} onClick={() => setStep(3)}>
+              {validationError && (
+                <p className="text-destructive text-sm font-medium text-center">{validationError}</p>
+              )}
+              <Button size="xl" className="w-full" onClick={() => {
+                const err = validateStep2();
+                if (err) { setValidationError(err); return; }
+                setValidationError("");
+                setStep(3);
+              }}>
                 {t.previewListing} <ChevronRight className="w-5 h-5 ml-1" />
               </Button>
             </motion.div>
@@ -645,7 +744,10 @@ export default function CreateListing() {
                     <p className="font-black text-xl leading-tight">{title}</p>
                     {brand && <p className="text-muted-foreground text-sm mt-0.5">{brand}</p>}
                   </div>
-                  <p className="text-2xl font-black gradient-text shrink-0">{formatPrice(parseFloat(price || "0"), profile?.currency ?? "USD")}</p>
+                  <div className="flex flex-col items-end shrink-0">
+                    <p className="text-2xl font-black gradient-text">{formatPrice(parseFloat(price || "0"), profile?.currency ?? "USD")}</p>
+                    {priceFlexible && <span className="text-xs text-muted-foreground">(Flexible)</span>}
+                  </div>
                 </div>
                 <p className="text-sm text-muted-foreground">
                   {[category, condition && CONDITIONS.find(c => c.value === condition)?.label, size && `Size ${size}`].filter(Boolean).join(" · ")}

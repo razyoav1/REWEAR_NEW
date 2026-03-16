@@ -19,6 +19,7 @@ interface UseListingsOptions {
   priceMin?: number;
   priceMax?: number;
   sortBy?: ListingSort;
+  genderFilter?: string;
 }
 
 function dbRowToListing(row: any, seller?: User, userLat?: number | null, userLng?: number | null): Listing {
@@ -50,6 +51,8 @@ function dbRowToListing(row: any, seller?: User, userLat?: number | null, userLn
     locationLng: row.location_lng,
     distance,
     status: row.status,
+    gender: row.gender ?? "unisex",
+    priceFlexible: row.price_flexible ?? false,
     tags: row.tags ?? [],
     createdAt: row.created_at,
   };
@@ -90,6 +93,9 @@ export function useListings(options: UseListingsOptions = {}) {
       if (options.condition) query = query.eq("condition", options.condition);
       if (options.priceMin) query = query.gte("price", options.priceMin);
       if (options.priceMax) query = query.lte("price", options.priceMax);
+      if (options.genderFilter && options.genderFilter !== "all") {
+        query = query.in("gender", [options.genderFilter, "unisex"]);
+      }
 
       const { data, error: fetchError } = await query;
       if (fetchError) throw fetchError;
@@ -135,7 +141,7 @@ export function useListings(options: UseListingsOptions = {}) {
       setIsLoading(false);
       isFetchingRef.current = false;
     }
-  }, [user?.id, profile?.location_lat, profile?.location_lng, options.userLat, options.userLng, options.sellerId, options.excludeOwnListings, options.excludeSellerIds?.join(","), options.status?.join(","), options.searchQuery, options.category, options.condition, options.priceMin, options.priceMax, options.sortBy]);
+  }, [user?.id, profile?.location_lat, profile?.location_lng, options.userLat, options.userLng, options.sellerId, options.excludeOwnListings, options.excludeSellerIds?.join(","), options.status?.join(","), options.searchQuery, options.category, options.condition, options.priceMin, options.priceMax, options.sortBy, options.genderFilter]);
 
   useEffect(() => {
     if (!authLoading) fetchListings();

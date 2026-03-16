@@ -1,5 +1,6 @@
 export type ListingCondition = "new_with_tags" | "like_new" | "good" | "fair";
 export type ListingStatus = "available" | "reserved" | "sold" | "hidden";
+export type ClothingGender = "men" | "women" | "unisex";
 export type VerificationStatus = "unverified" | "pending" | "verified" | "failed";
 
 export type ClothingCategory =
@@ -51,6 +52,8 @@ export interface Listing {
   locationLng?: number;
   distance?: number;
   status: ListingStatus;
+  gender?: ClothingGender;
+  priceFlexible?: boolean;
   tags?: string[];
   createdAt: string;
 }
@@ -136,6 +139,13 @@ export const CONDITION_COLORS: Record<ListingCondition, string> = {
   good: "bg-blue-500/20 text-blue-400",
   fair: "bg-orange-500/20 text-orange-400",
 };
+
+export const GENDERS: { value: ClothingGender | "all"; label: string }[] = [
+  { value: "all", label: "All" },
+  { value: "women", label: "Women's" },
+  { value: "men", label: "Men's" },
+  { value: "unisex", label: "Unisex" },
+];
 
 export const CATEGORIES: ClothingCategory[] = [
   "Tops", "Bottoms", "Dresses", "Outerwear",

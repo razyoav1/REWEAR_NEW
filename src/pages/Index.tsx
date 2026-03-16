@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { SlidersHorizontal, Compass, DollarSign, MapPin, Clock, Settings, MessageCircle } from "lucide-react";
+import { SlidersHorizontal, Compass, DollarSign, MapPin, Clock, Settings, MessageCircle, RotateCcw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -16,12 +16,13 @@ import { useUnreadCount } from "@/components/layout/BottomNav";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
+import { GENDERS } from "@/types";
 import type { Listing } from "@/types";
 
 const CATEGORIES = ["All", "Tops", "Bottoms", "Dresses", "Outerwear", "Shoes", "Accessories"];
 
 const UNDO_LIMIT_KEY = "rewear_undo_limit";
-const UNDO_MAX = 5;
+const UNDO_MAX = 10;
 
 function getUndoData(): { date: string; count: number } {
   try {
@@ -49,6 +50,7 @@ export default function Index() {
   const { t } = useLanguage();
   const unreadCount = useUnreadCount();
   const [category, setCategory] = useState<string | undefined>(undefined);
+  const [genderFilter, setGenderFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<ListingSort>("newest");
   const [showFilters, setShowFilters] = useState(false);
 
@@ -90,6 +92,7 @@ export default function Index() {
     excludeSellerIds: blockedSellerIds,
     status: ["available"],
     category,
+    genderFilter,
     sortBy,
     userLat: profile?.location_lat,
     userLng: profile?.location_lng,
@@ -212,7 +215,7 @@ export default function Index() {
   }, [history, user?.id]);
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col pb-24">
       <div className="flex items-center justify-between px-5 pt-14 pb-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">
@@ -257,6 +260,19 @@ export default function Index() {
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Gender tab strip */}
+      <div className="flex gap-1 px-5 pb-3">
+        {GENDERS.filter(g => g.value !== "unisex").map(g => (
+          <button key={g.value} onClick={() => { setGenderFilter(g.value); setDoneIds(new Set()); }}
+            className={cn("flex-1 py-2 rounded-xl text-sm font-bold transition-all",
+              genderFilter === g.value
+                ? "bg-primary text-white"
+                : "bg-muted text-muted-foreground hover:text-foreground")}>
+            {g.label}
+          </button>
+        ))}
+      </div>
 
       {/* Category chips */}
       <div className="flex gap-2 px-5 pb-3 overflow-x-auto no-scrollbar">
@@ -307,6 +323,11 @@ export default function Index() {
                   <Settings className="w-4 h-4" /> {t.increaseRadius}
                 </Button>
               </div>
+              {history.length > 0 && (
+                <Button variant="ghost" onClick={handleUndo} className="flex items-center gap-2 text-muted-foreground hover:text-foreground">
+                  <RotateCcw className="w-4 h-4" /> Undo last swipe
+                </Button>
+              )}
             </motion.div>
           )}
         </div>
