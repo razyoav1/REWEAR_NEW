@@ -205,7 +205,7 @@ export default function Search() {
                   genderFilter === g.value
                     ? "bg-primary text-white"
                     : "bg-muted text-muted-foreground hover:text-foreground")}>
-                {g.label}
+                {({ all: t.genderAll, women: t.genderWomens, men: t.genderMens, unisex: t.genderUnisex } as Record<string, string>)[g.value] ?? g.label}
               </button>
             ))}
           </div>

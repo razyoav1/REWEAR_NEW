@@ -1,4 +1,5 @@
 import { useState, useRef } from "react";
+import { useLanguage } from "@/contexts/LanguageContext";
 import { motion, useMotionValue, useTransform, type PanInfo } from "framer-motion";
 import { MapPin, Star, ChevronLeft, ChevronRight, X, Heart, MessageCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -33,6 +34,7 @@ interface SwipeCardProps {
 }
 
 export function SwipeCard({ listing, userCurrency, onSwipeLeft, onSwipeRight, onSwipeUp, onTap, isTop }: SwipeCardProps) {
+  const { t } = useLanguage();
   const [photoIndex, setPhotoIndex] = useState(0);
   const [exitDir, setExitDir] = useState<"left" | "right" | "up" | null>(null);
   const hasDragged = useRef(false);
@@ -231,8 +233,11 @@ export function SwipeCard({ listing, userCurrency, onSwipeLeft, onSwipeRight, on
             </div>
             <div className="text-right shrink-0">
               <p className="text-white font-black text-3xl leading-none">{displayPrice(listing.price, listing.currency, userCurrency)}</p>
-              {listing.priceFlexible && (
-                <span className="text-[10px] font-semibold bg-white/20 text-white px-1.5 py-0.5 rounded-md backdrop-blur-sm">Flexible</span>
+              {listing.priceFlexible === true && (
+                <span className="text-[10px] font-semibold bg-white/20 text-white px-1.5 py-0.5 rounded-md backdrop-blur-sm">{t.priceFlexibleBadge}</span>
+              )}
+              {listing.priceFlexible === false && (
+                <span className="text-[10px] font-semibold bg-white/20 text-white px-1.5 py-0.5 rounded-md backdrop-blur-sm">{t.priceFixed}</span>
               )}
             </div>
           </div>

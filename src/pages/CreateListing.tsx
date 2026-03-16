@@ -13,12 +13,6 @@ import { toast } from "sonner";
 import { CATEGORIES, GENDERS, type ClothingCategory, type ClothingGender, type ListingCondition } from "@/types";
 import { cn, getCurrencySymbol, formatPrice } from "@/lib/utils";
 
-const CONDITIONS: { value: ListingCondition; label: string; desc: string }[] = [
-  { value: "new_with_tags", label: "New with tags", desc: "Never worn, tags attached" },
-  { value: "like_new", label: "Like new", desc: "Worn once or twice, pristine" },
-  { value: "good", label: "Good", desc: "Some light signs of wear" },
-  { value: "fair", label: "Fair", desc: "Visible wear, still great" },
-];
 
 const COMMON_COLORS = ["Black", "White", "Grey", "Brown", "Beige", "Blue", "Navy", "Red", "Pink", "Green", "Yellow", "Orange", "Purple", "Multicolor"];
 
@@ -103,6 +97,13 @@ export default function CreateListing() {
 
   const { user, profile } = useAuth();
   const { t, isRTL } = useLanguage();
+
+  const CONDITIONS: { value: ListingCondition; label: string; desc: string }[] = [
+    { value: "new_with_tags", label: "New with tags", desc: t.condNewWithTagsDesc },
+    { value: "like_new", label: "Like new", desc: t.condLikeNewDesc },
+    { value: "good", label: "Good", desc: t.condGoodDesc },
+    { value: "fair", label: "Fair", desc: t.condFairDesc },
+  ];
 
   // User-scoped draft keys so different users never share drafts
   const draftKey = `rewear_create_draft_${user?.id ?? ""}`;
@@ -323,25 +324,25 @@ export default function CreateListing() {
   }, [step]);
 
   function validateStep0(): string {
-    if (photos.length === 0) return "Please add at least one photo to continue";
+    if (photos.length === 0) return t.validationMissingPhoto;
     return "";
   }
 
   function validateStep1(): string {
     const missing: string[] = [];
-    if (!title.trim()) missing.push("Title");
-    if (!category) missing.push("Category");
-    if (!condition) missing.push("Condition");
-    if (!gender) missing.push("Gender");
-    if (missing.length > 0) return `Please fill in: ${missing.join(", ")}`;
+    if (!title.trim()) missing.push(t.titleField.replace(" *", ""));
+    if (!category) missing.push(t.categoryField.replace(" *", ""));
+    if (!condition) missing.push(t.conditionField.replace(" *", ""));
+    if (!gender) missing.push(t.genderField);
+    if (missing.length > 0) return `${t.validationPleaseFillin} ${missing.join(", ")}`;
     return "";
   }
 
   function validateStep2(): string {
     const missing: string[] = [];
-    if (!price || parseFloat(price) <= 0) missing.push("Price");
-    if (priceFlexible === null) missing.push("Price flexibility");
-    if (missing.length > 0) return `Please fill in: ${missing.join(", ")}`;
+    if (!price || parseFloat(price) <= 0) missing.push(t.priceField.replace(" *", ""));
+    if (priceFlexible === null) missing.push(t.priceFlexibilityField);
+    if (missing.length > 0) return `${t.validationPleaseFillin} ${missing.join(", ")}`;
     return "";
   }
 
@@ -502,7 +503,7 @@ export default function CreateListing() {
                   >
                     <img src={getPreview(p)} alt="" className="w-full h-full object-cover pointer-events-none" />
                     {i === 0 && (
-                      <span className="absolute top-1 left-1 text-[10px] bg-primary text-white px-1.5 py-0.5 rounded font-bold">Cover</span>
+                      <span className="absolute top-1 left-1 text-[10px] bg-primary text-white px-1.5 py-0.5 rounded font-bold">{t.coverLabel}</span>
                     )}
                     <button onClick={() => removePhoto(i)}
                       className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/60 flex items-center justify-center">
@@ -567,17 +568,17 @@ export default function CreateListing() {
 
               <div className="space-y-1.5">
                 <Label>{t.titleField}</Label>
-                <Input placeholder="e.g. Vintage Levi's 501 Jeans" value={title} onChange={e => setTitle(e.target.value)} />
+                <Input placeholder={t.titlePlaceholder} value={title} onChange={e => setTitle(e.target.value)} />
               </div>
 
               <div className="space-y-1.5">
-                <Label>Gender <span className="text-destructive">*</span></Label>
+                <Label>{t.genderField} <span className="text-destructive">*</span></Label>
                 <div className="grid grid-cols-3 gap-2">
                   {GENDERS.filter(g => g.value !== "all").map(g => (
                     <button key={g.value} onClick={() => setGender(g.value as ClothingGender)}
                       className={cn("p-3 rounded-2xl border-2 text-center transition-all",
                         gender === g.value ? "border-primary bg-primary/10" : "border-border hover:border-border/80")}>
-                      <p className="font-bold text-sm">{g.label}</p>
+                      <p className="font-bold text-sm">{({ women: t.genderWomens, men: t.genderMens, unisex: t.genderUnisex } as Record<string, string>)[g.value] ?? g.label}</p>
                     </button>
                   ))}
                 </div>
@@ -618,11 +619,11 @@ export default function CreateListing() {
               <div className="flex gap-3">
                 <div className="flex-1 space-y-1.5">
                   <Label>{t.brandField}</Label>
-                  <Input placeholder="e.g. Nike, Zara" value={brand} onChange={e => setBrand(e.target.value)} />
+                  <Input placeholder={t.brandPlaceholder} value={brand} onChange={e => setBrand(e.target.value)} />
                 </div>
                 <div className="flex-1 space-y-1.5">
                   <Label>{t.sizeField}</Label>
-                  <Input placeholder="e.g. M, 32, EU42" value={size} onChange={e => setSize(e.target.value)} />
+                  <Input placeholder={t.sizePlaceholder} value={size} onChange={e => setSize(e.target.value)} />
                 </div>
               </div>
 
@@ -641,7 +642,7 @@ export default function CreateListing() {
               <div className="space-y-1.5">
                 <Label>{t.descriptionField}</Label>
                 <textarea
-                  placeholder="Describe the item — style, fit, any flaws…"
+                  placeholder={t.descriptionPlaceholder}
                   value={description}
                   onChange={e => setDescription(e.target.value)}
                   rows={3}
@@ -670,7 +671,7 @@ export default function CreateListing() {
               <h2 className="text-xl font-bold">{t.setYourPrice}</h2>
 
               <div className="space-y-1.5">
-                <Label>Price flexibility <span className="text-destructive">*</span></Label>
+                <Label>{t.priceFlexibilityField} <span className="text-destructive">*</span></Label>
                 <div className="grid grid-cols-2 gap-3">
                   <button
                     onClick={() => setPriceFlexible(false)}
@@ -679,8 +680,8 @@ export default function CreateListing() {
                       priceFlexible === false ? "border-primary bg-primary/10" : "border-border hover:border-border/80"
                     )}
                   >
-                    <p className="font-bold text-sm">Fixed</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">Price is final</p>
+                    <p className="font-bold text-sm">{t.priceFixed}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{t.priceFixedDesc}</p>
                   </button>
                   <button
                     onClick={() => setPriceFlexible(true)}
@@ -689,8 +690,8 @@ export default function CreateListing() {
                       priceFlexible === true ? "border-primary bg-primary/10" : "border-border hover:border-border/80"
                     )}
                   >
-                    <p className="font-bold text-sm">Flexible</p>
-                    <p className="text-xs text-muted-foreground mt-0.5">Open to offers</p>
+                    <p className="font-bold text-sm">{t.priceFlexibleOption}</p>
+                    <p className="text-xs text-muted-foreground mt-0.5">{t.priceFlexibleDesc}</p>
                   </button>
                 </div>
               </div>
@@ -746,11 +747,11 @@ export default function CreateListing() {
                   </div>
                   <div className="flex flex-col items-end shrink-0">
                     <p className="text-2xl font-black gradient-text">{formatPrice(parseFloat(price || "0"), profile?.currency ?? "USD")}</p>
-                    {priceFlexible && <span className="text-xs text-muted-foreground">(Flexible)</span>}
+                    {priceFlexible && <span className="text-xs text-muted-foreground">{t.priceFlexiblePreview}</span>}
                   </div>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  {[category, condition && CONDITIONS.find(c => c.value === condition)?.label, size && `Size ${size}`].filter(Boolean).join(" · ")}
+                  {[category, condition && CONDITIONS.find(c => c.value === condition)?.label, size && `${t.sizeLabel} ${size}`].filter(Boolean).join(" · ")}
                 </p>
                 {colors.length > 0 && (
                   <p className="text-sm text-muted-foreground">{colors.join(", ")}</p>

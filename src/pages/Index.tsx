@@ -269,7 +269,7 @@ export default function Index() {
               genderFilter === g.value
                 ? "bg-primary text-white"
                 : "bg-muted text-muted-foreground hover:text-foreground")}>
-            {g.label}
+            {({ all: t.genderAll, women: t.genderWomens, men: t.genderMens, unisex: t.genderUnisex } as Record<string, string>)[g.value] ?? g.label}
           </button>
         ))}
       </div>
@@ -325,7 +325,7 @@ export default function Index() {
               </div>
               {history.length > 0 && (
                 <Button variant="ghost" onClick={handleUndo} className="flex items-center gap-2 text-muted-foreground hover:text-foreground">
-                  <RotateCcw className="w-4 h-4" /> Undo last swipe
+                  <RotateCcw className="w-4 h-4" /> {t.undoLastSwipe}
                 </Button>
               )}
             </motion.div>
