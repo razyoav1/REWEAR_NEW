@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { SlidersHorizontal, Compass, DollarSign, MapPin, Clock, Settings, MessageCircle, RotateCcw } from "lucide-react";
+import { SlidersHorizontal, Compass, DollarSign, MapPin, Clock, Settings, RotateCcw, Search } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -12,7 +12,6 @@ import { useListings, type ListingSort } from "@/hooks/useListings";
 import { useBlocks } from "@/hooks/useBlocks";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
-import { useUnreadCount } from "@/components/layout/BottomNav";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
@@ -48,7 +47,6 @@ export default function Index() {
   const navigate = useNavigate();
   const { user, profile } = useAuth();
   const { t } = useLanguage();
-  const unreadCount = useUnreadCount();
   const [category, setCategory] = useState<string | undefined>(undefined);
   const [genderFilter, setGenderFilter] = useState<string>("all");
   const [sortBy, setSortBy] = useState<ListingSort>("newest");
@@ -65,7 +63,7 @@ export default function Index() {
   const [seenIds, setSeenIds] = useState<string[]>([]);
   const [listingToSave, setListingToSave] = useState<Listing | null>(null);
 
-  const { blockedUsers } = useBlocks();
+  const { blockedUsers, isLoading: blocksLoading } = useBlocks();
   const blockedSellerIds = blockedUsers.map(u => u.id);
 
   // Load previously seen/saved listing IDs from localStorage + Supabase
@@ -89,7 +87,8 @@ export default function Index() {
 
   const { listings: raw, isLoading, refetch } = useListings({
     excludeOwnListings: true,
-    excludeSellerIds: blockedSellerIds,
+    // Don't fetch until blocks are loaded — prevents blocked sellers briefly appearing in feed
+    excludeSellerIds: blocksLoading ? ["__placeholder__"] : blockedSellerIds,
     status: ["available"],
     category,
     genderFilter,
@@ -122,19 +121,19 @@ export default function Index() {
   }
 
   const handleSkip = useCallback(() => {
-    if (!current) return;
+    if (!current || !user) return;
     dismiss(current, "skip");
     supabase.from("listing_interactions").upsert(
-      { user_id: user?.id, listing_id: current.id, action: "declined" },
+      { user_id: user.id, listing_id: current.id, action: "declined" },
       { onConflict: "user_id,listing_id" }
     ).then(() => {});
-  }, [current, user?.id]);
+  }, [current, user]);
 
   const handleSave = useCallback(async () => {
     if (!current || !user) return;
     dismiss(current, "save");
     supabase.from("listing_interactions").upsert(
-      { user_id: user.id, listing_id: current.id, action: "seen" },
+      { user_id: user.id, listing_id: current.id, action: "saved" },
       { onConflict: "user_id,listing_id" }
     ).then(() => {});
 
@@ -164,7 +163,7 @@ export default function Index() {
       if (error) { toast.error(t.cantSaveItem); return; }
     }
     toast.success(t.saved, { description: current.title });
-  }, [current, user]);
+  }, [current, user, t]);
 
   const handleChat = useCallback(async () => {
     if (!current || !user) return;
@@ -224,14 +223,9 @@ export default function Index() {
           <p className="text-muted-foreground text-sm">{t.swipeToFind}</p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => navigate("/messages")} className="relative w-9 h-9 rounded-full bg-muted flex items-center justify-center hover:bg-muted/80 transition-colors">
-            <MessageCircle className="w-5 h-5" />
-            {unreadCount > 0 && (
-              <span className="absolute -top-1 -right-1 min-w-[16px] h-4 rounded-full bg-primary text-white text-[9px] font-black flex items-center justify-center px-1">
-                {unreadCount > 9 ? "9+" : unreadCount}
-              </span>
-            )}
-          </button>
+          <Button variant="outline" size="icon" onClick={() => navigate("/search")}>
+            <Search className="w-4 h-4" />
+          </Button>
           <Button variant={showFilters ? "default" : "outline"} size="icon" onClick={() => setShowFilters(s => !s)}>
             <SlidersHorizontal className="w-4 h-4" />
           </Button>
@@ -304,7 +298,7 @@ export default function Index() {
               )}
               <SwipeCard key={current.id} listing={current}
                 userCurrency={profile?.currency ?? "USD"}
-                onSwipeLeft={handleSkip} onSwipeRight={handleChat} onSwipeUp={handleSave}
+                onSwipeLeft={handleSkip} onSwipeRight={handleSave} onSwipeUp={handleSave}
                 onTap={() => navigate(`/listings/${current.id}`)} isTop={true} />
             </AnimatePresence>
           ) : (

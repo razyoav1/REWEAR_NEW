@@ -56,7 +56,9 @@ function loadDraftPhotos(key: string): string[] {
 
 function dataUrlToPhotoEntry(dataUrl: string, index: number): PhotoEntry {
   const arr = dataUrl.split(",");
-  const mime = arr[0].match(/:(.*?);/)![1];
+  const mimeMatch = arr[0].match(/:(.*?);/);
+  if (!mimeMatch) return { kind: "new" as const, file: new File([], `photo-${index}.jpg`), preview: dataUrl };
+  const mime = mimeMatch[1];
   const bstr = atob(arr[1]);
   const u8 = new Uint8Array(bstr.length);
   for (let i = 0; i < bstr.length; i++) u8[i] = bstr.charCodeAt(i);
@@ -156,6 +158,12 @@ export default function CreateListing() {
         navigate(-1);
         return;
       }
+      // Ownership check — prevent loading another user's listing into the edit form
+      if (data.seller_id !== user?.id) {
+        toast.error("You can only edit your own listings");
+        navigate(-1);
+        return;
+      }
       setTitle(data.title ?? "");
       setCategory((data.category as ClothingCategory) ?? "");
       setBrand(data.brand ?? "");
@@ -229,10 +237,27 @@ export default function CreateListing() {
     localStorage.removeItem(draftPhotosKey);
   }
 
+  const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/heic", "image/heif"];
+  const MAX_FILE_SIZE_MB = 20;
+
   async function addPhotos(files: FileList | null) {
     if (!files) return;
     setProcessingPhotos(true);
-    const newFiles = Array.from(files).slice(0, 8 - photos.length);
+    const allFiles = Array.from(files);
+    // Validate MIME type and size before processing
+    for (const file of allFiles) {
+      if (!ALLOWED_IMAGE_TYPES.includes(file.type)) {
+        toast.error(`"${file.name}" is not a supported image type`);
+        setProcessingPhotos(false);
+        return;
+      }
+      if (file.size > MAX_FILE_SIZE_MB * 1024 * 1024) {
+        toast.error(`"${file.name}" exceeds the ${MAX_FILE_SIZE_MB}MB size limit`);
+        setProcessingPhotos(false);
+        return;
+      }
+    }
+    const newFiles = allFiles.slice(0, 8 - photos.length);
     const newEntries: PhotoEntry[] = await Promise.all(
       newFiles.map(async (file) => {
         const dataUrl = await new Promise<string>(resolve => {
@@ -281,7 +306,6 @@ export default function CreateListing() {
     dragIndexRef.current = null;
     dragOverIndexRef.current = null;
     setDragOverIndex(null);
-    setDragOverIndex(null);
   }
 
   // Touch drag handlers
@@ -310,7 +334,6 @@ export default function CreateListing() {
     }
     dragIndexRef.current = null;
     dragOverIndexRef.current = null;
-    setDragOverIndex(null);
     setDragOverIndex(null);
   }
 
@@ -405,8 +428,8 @@ export default function CreateListing() {
         navigate("/profile");
       }
     } catch (err: unknown) {
-      const msg = (err instanceof Error ? err.message : (err as any)?.message) || "Failed to save listing";
-      toast.error(msg);
+      const message = err instanceof Error ? err.message : "An error occurred";
+      toast.error(message);
     } finally {
       setSubmitting(false);
     }

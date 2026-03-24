@@ -77,10 +77,12 @@ export default function Onboarding() {
   }
 
   async function handleAllowLocation() {
-    if (!navigator.geolocation) return finish();
+    if (!navigator.geolocation) { void finish(); return; }
     navigator.geolocation.getCurrentPosition(
-      (pos) => finish({ lat: pos.coords.latitude, lng: pos.coords.longitude }),
-      () => finish(),
+      (pos) => finish({ lat: pos.coords.latitude, lng: pos.coords.longitude })
+        .catch(err => toast.error(err instanceof Error ? err.message : "Something went wrong")),
+      () => finish()
+        .catch(err => toast.error(err instanceof Error ? err.message : "Something went wrong")),
     );
   }
 

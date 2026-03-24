@@ -24,11 +24,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profileFetched, setProfileFetched] = useState(false);
 
   async function fetchProfile(userId: string) {
-    const { data } = await supabase
+    const { data, error } = await supabase
       .from("users")
       .select("*")
       .eq("id", userId)
       .single();
+    if (error && error.code !== "PGRST116") {
+      // PGRST116 = row not found (expected for new Google OAuth users before onboarding)
+      import.meta.env.DEV && console.error("fetchProfile failed:", error.message);
+    }
     // Always update profile state (null if row doesn't exist)
     setProfile(data as UserProfile | null);
     setProfileFetched(true);
@@ -51,15 +55,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      (_event, session) => {
+      async (_event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
           setProfileFetched(false); // reset so route guards wait for the new profile
-          fetchProfile(session.user.id);
+          await fetchProfile(session.user.id);
           // Update last_seen_at on every sign-in / session restore
           supabase.from("users").update({ last_seen_at: new Date().toISOString() }).eq("id", session.user.id)
-            .then(({ error }) => { if (error) console.error("last_seen_at update failed:", error.message); });
+            .then(({ error }) => { if (error) import.meta.env.DEV && console.error("last_seen_at update failed:", error.message); });
         } else {
           setProfile(null);
           setProfileFetched(true);

@@ -203,7 +203,7 @@ export default function SellerProfile() {
     if (!id || isOwnProfile || !user?.id) return;
     checkCanReview(id).then(can => setCanReview(can));
     getExistingReview(id).then(existing => { if (existing) setCanReview(true); });
-  }, [id, isOwnProfile, user?.id, checkCanReview, getExistingReview]);
+  }, [id, isOwnProfile, user?.id]);
 
   async function handleMessage() {
     if (!user || !seller) return;

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { MessageCircle } from "lucide-react";
@@ -7,6 +7,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
+import { useBlocks } from "@/hooks/useBlocks";
 import { formatDistanceToNow } from "date-fns";
 
 interface ConversationRow {
@@ -43,68 +44,93 @@ export default function Messages() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const { t } = useLanguage();
+  const { blockedUsers } = useBlocks();
+  const blockedIdsRef = useRef<Set<string>>(new Set());
+  blockedIdsRef.current = new Set(blockedUsers.map(u => u.id));
   const [conversations, setConversations] = useState<ConversationDisplay[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const load = useCallback(async () => {
+    if (!user) return;
+    setLoading(true);
+    const { data: convs } = await supabase
+      .from("conversations")
+      .select("*")
+      .or(`buyer_id.eq.${user.id},seller_id.eq.${user.id}`)
+      .order("created_at", { ascending: false });
+
+    if (!convs || convs.length === 0) { setLoading(false); return; }
+
+    const userIds = [...new Set((convs as ConversationRow[]).flatMap(c => [c.buyer_id, c.seller_id]))];
+    const { data: users } = await supabase.from("users").select("id, name, avatar_url").in("id", userIds);
+
+    const listingIds = (convs as ConversationRow[]).map(c => c.listing_id).filter(Boolean) as string[];
+    const { data: listings } = listingIds.length > 0
+      ? await supabase.from("clothing_listings").select("id, title, photos, price").in("id", listingIds)
+      : { data: [] };
+
+    const convIds = (convs as ConversationRow[]).map(c => c.id);
+    const { data: messages } = await supabase
+      .from("messages")
+      .select("*")
+      .in("conversation_id", convIds)
+      .order("created_at", { ascending: false });
+
+    const lastMessageMap: Record<string, MessageRow> = {};
+    (messages as MessageRow[] ?? []).forEach(m => {
+      if (!lastMessageMap[m.conversation_id]) lastMessageMap[m.conversation_id] = m;
+    });
+
+    const userMap: Record<string, UserRow> = {};
+    (users as UserRow[] ?? []).forEach(u => { userMap[u.id] = u; });
+
+    const listingMap: Record<string, ListingRow> = {};
+    (listings as ListingRow[] ?? []).forEach(l => { listingMap[l.id] = l; });
+
+    const display: ConversationDisplay[] = (convs as ConversationRow[]).map(c => {
+      const otherId = c.buyer_id === user.id ? c.seller_id : c.buyer_id;
+      const lastMsg = lastMessageMap[c.id];
+      const lastRead = getLastRead(c.id);
+      const unread = !!lastMsg &&
+        lastMsg.sender_id !== user.id &&
+        (!lastRead || new Date(lastMsg.created_at) > new Date(lastRead));
+      return {
+        id: c.id,
+        otherUser: userMap[otherId] ?? { id: otherId, name: "Unknown" },
+        listing: c.listing_id ? listingMap[c.listing_id] : undefined,
+        lastMessage: lastMsg,
+        unread,
+      };
+    });
+
+    // Filter out conversations with blocked users
+    const filtered = display.filter(c => !blockedIdsRef.current.has(c.otherUser.id));
+    // Sort by last message time (most recent first), falling back to conversation created_at
+    filtered.sort((a, b) => {
+      const aTime = a.lastMessage?.created_at ?? (convs as ConversationRow[]).find(c => c.id === a.id)?.created_at ?? "";
+      const bTime = b.lastMessage?.created_at ?? (convs as ConversationRow[]).find(c => c.id === b.id)?.created_at ?? "";
+      return bTime.localeCompare(aTime);
+    });
+    setConversations(filtered);
+    setLoading(false);
+  }, [user]);
+
+  useEffect(() => {
+    load();
+  }, [load, blockedUsers]);
+
   useEffect(() => {
     if (!user) return;
-    async function load() {
-      setLoading(true);
-      const { data: convs } = await supabase
-        .from("conversations")
-        .select("*")
-        .or(`buyer_id.eq.${user!.id},seller_id.eq.${user!.id}`)
-        .order("created_at", { ascending: false });
-
-      if (!convs || convs.length === 0) { setLoading(false); return; }
-
-      const userIds = [...new Set((convs as ConversationRow[]).flatMap(c => [c.buyer_id, c.seller_id]))];
-      const { data: users } = await supabase.from("users").select("id, name, avatar_url").in("id", userIds);
-
-      const listingIds = (convs as ConversationRow[]).map(c => c.listing_id).filter(Boolean) as string[];
-      const { data: listings } = listingIds.length > 0
-        ? await supabase.from("clothing_listings").select("id, title, photos, price").in("id", listingIds)
-        : { data: [] };
-
-      const convIds = (convs as ConversationRow[]).map(c => c.id);
-      const { data: messages } = await supabase
-        .from("messages")
-        .select("*")
-        .in("conversation_id", convIds)
-        .order("created_at", { ascending: false });
-
-      const lastMessageMap: Record<string, MessageRow> = {};
-      (messages as MessageRow[] ?? []).forEach(m => {
-        if (!lastMessageMap[m.conversation_id]) lastMessageMap[m.conversation_id] = m;
-      });
-
-      const userMap: Record<string, UserRow> = {};
-      (users as UserRow[] ?? []).forEach(u => { userMap[u.id] = u; });
-
-      const listingMap: Record<string, ListingRow> = {};
-      (listings as ListingRow[] ?? []).forEach(l => { listingMap[l.id] = l; });
-
-      const display: ConversationDisplay[] = (convs as ConversationRow[]).map(c => {
-        const otherId = c.buyer_id === user!.id ? c.seller_id : c.buyer_id;
-        const lastMsg = lastMessageMap[c.id];
-        const lastRead = getLastRead(c.id);
-        const unread = !!lastMsg &&
-          lastMsg.sender_id !== user!.id &&
-          (!lastRead || new Date(lastMsg.created_at) > new Date(lastRead));
-        return {
-          id: c.id,
-          otherUser: userMap[otherId] ?? { id: otherId, name: "Unknown" },
-          listing: c.listing_id ? listingMap[c.listing_id] : undefined,
-          lastMessage: lastMsg,
-          unread,
-        };
-      });
-
-      setConversations(display);
-      setLoading(false);
-    }
-    load();
-  }, [user]);
+    const channel = supabase
+      .channel(`inbox:${user.id}`)
+      .on(
+        "postgres_changes",
+        { event: "INSERT", schema: "public", table: "messages" },
+        () => { load(); }
+      )
+      .subscribe();
+    return () => { supabase.removeChannel(channel); };
+  }, [user, load]);
 
   return (
     <div className="min-h-screen bg-background">

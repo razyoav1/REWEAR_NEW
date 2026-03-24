@@ -5,6 +5,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import { AdminPagination } from "@/components/admin/AdminPagination";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
@@ -52,8 +53,9 @@ export default function AdminReviews() {
   async function handleDelete() {
     if (!selected) return;
     setDeleting(true);
-    await supabase.from("reviews").delete().eq("id", selected.id);
+    const { error } = await supabase.from("reviews").delete().eq("id", selected.id);
     setDeleting(false);
+    if (error) { toast.error("Failed to delete review: " + error.message); return; }
     setSelected(null);
     load();
   }

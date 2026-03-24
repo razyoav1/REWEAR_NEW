@@ -54,7 +54,8 @@ export default function AdminAuditLog() {
       .range((page - 1) * PAGE_SIZE, page * PAGE_SIZE - 1);
     if (dateFrom) q = q.gte("created_at", dateFrom);
     if (dateTo) q = q.lte("created_at", dateTo + "T23:59:59Z");
-    const { data, count } = await q;
+    const { data, count, error } = await q;
+    if (error) { import.meta.env.DEV && console.error("Audit log fetch failed:", error.message); setLoading(false); return; }
     setTotal(count ?? 0);
     if (!data?.length) { setEntries([]); setLoading(false); return; }
     const actorIds = [...new Set(data.filter(e => e.actor_id).map(e => e.actor_id as string))];

@@ -1,5 +1,5 @@
 import { NavLink, useLocation, useNavigate } from "react-router-dom";
-import { Compass, Search, Plus, User, Heart } from "lucide-react";
+import { Compass, Plus, User, MessageCircle, Search } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { motion } from "framer-motion";
 import { useState, useEffect } from "react";
@@ -57,10 +57,11 @@ export function BottomNav() {
   const navigate = useNavigate();
   const { t } = useLanguage();
   const { profile } = useAuth();
+  const unreadCount = useUnreadCount();
   const NAV_ITEMS = [
     { to: "/", icon: Compass, label: t.discover },
-    { to: "/search", icon: Search, label: t.search },
-    { to: "/wishlist", icon: Heart, label: t.wishlist },
+    { to: "/search", icon: Search, label: t.search ?? "Search" },
+    { to: "/messages", icon: MessageCircle, label: t.messages },
     { to: "/profile", icon: User, label: t.me },
   ];
 
@@ -100,11 +101,19 @@ export function BottomNav() {
 
         {NAV_ITEMS.slice(2).map(({ to, icon: Icon, label }) => {
           const isActive = pathname.startsWith(to);
+          const isMessages = to === "/messages";
           return (
             <NavLink key={to} to={to} className="relative flex flex-col items-center justify-center gap-0.5 w-12 h-full group">
               <div className="relative flex flex-col items-center">
                 {isActive && <motion.div layoutId="nav-indicator" className="absolute -top-1.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-primary" transition={{ type: "spring", stiffness: 400, damping: 30 }} />}
-                <Icon className={cn("w-5 h-5 transition-all duration-200", isActive ? "text-primary stroke-[2.5px]" : "text-muted-foreground stroke-[1.5px] group-hover:text-foreground")} />
+                <div className="relative">
+                  <Icon className={cn("w-5 h-5 transition-all duration-200", isActive ? "text-primary stroke-[2.5px]" : "text-muted-foreground stroke-[1.5px] group-hover:text-foreground")} />
+                  {isMessages && unreadCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 min-w-[14px] h-3.5 rounded-full bg-primary text-white text-[8px] font-black flex items-center justify-center px-0.5">
+                      {unreadCount > 9 ? "9+" : unreadCount}
+                    </span>
+                  )}
+                </div>
                 <span className={cn("text-[10px] font-semibold mt-0.5 transition-all duration-200", isActive ? "text-primary" : "text-muted-foreground group-hover:text-foreground")}>{label}</span>
               </div>
             </NavLink>

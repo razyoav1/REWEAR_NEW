@@ -128,18 +128,18 @@ export default function Wishlist() {
     setLoadingCols(false);
   }
 
-  async function loadItems(collectionId: string) {
+  async function loadItems(collectionId: string, cols: Collection[]) {
     setLoadingItems(true);
 
     // "Saved" = virtual view of ALL items across every collection the user owns
-    const col = collections.find(c => c.id === collectionId);
-    const isSavedView = col?.name === "Saved" && collections.length > 1;
+    const col = cols.find(c => c.id === collectionId);
+    const isSavedView = col?.name === "Saved" && cols.length > 1;
 
     const { data: wItems } = isSavedView
       ? await supabase
           .from("wishlist_items")
           .select("id, listing_id")
-          .in("wishlist_id", collections.map(c => c.id))
+          .in("wishlist_id", cols.map(c => c.id))
           .order("created_at", { ascending: false })
       : await supabase
           .from("wishlist_items")
@@ -168,7 +168,7 @@ export default function Wishlist() {
   }
 
   useEffect(() => { loadCollections(); }, [user?.id]);
-  useEffect(() => { if (activeId) loadItems(activeId); else setItems([]); }, [activeId]);
+  useEffect(() => { if (activeId) loadItems(activeId, collections); else setItems([]); }, [activeId, collections]);
 
   async function createCollection() {
     if (!user || !newName.trim()) return;
@@ -193,7 +193,12 @@ export default function Wishlist() {
   async function saveRename() {
     if (!renamingId || !renameInput.trim()) return;
     setSavingRename(true);
-    await supabase.from("wishlists").update({ name: renameInput.trim() }).eq("id", renamingId);
+    const { error } = await supabase.from("wishlists").update({ name: renameInput.trim() }).eq("id", renamingId);
+    if (error) {
+      toast.error(t.failedCreateCollection);
+      setSavingRename(false);
+      return;
+    }
     setCollections(prev => prev.map(c => c.id === renamingId ? { ...c, name: renameInput.trim() } : c));
     toast.success(t.collectionRenamed);
     setRenamingId(null);
@@ -202,9 +207,13 @@ export default function Wishlist() {
 
   async function toggleShare(col: Collection) {
     const next = !col.is_shared;
-    await supabase.from("wishlists").update({ is_shared: next }).eq("id", col.id);
+    const { error } = await supabase.from("wishlists").update({ is_shared: next }).eq("id", col.id);
+    if (error) {
+      toast.error(t.failedCreateCollection);
+      return;
+    }
     if (next) {
-      const url = `${window.location.origin}/collection/${col.id}`;
+      const url = `${window.location.origin}/wishlist?col=${col.id}`;
       await navigator.clipboard.writeText(url);
       toast.success(t.collectionPublicMsg);
     } else {
@@ -218,8 +227,11 @@ export default function Wishlist() {
     setRemoving(wishlistItemId);
     await supabase.from("wishlist_items").delete().eq("id", wishlistItemId);
     setItems(prev => prev.filter(i => i.wishlistItemId !== wishlistItemId));
-    // Decrement every collection's count (Saved shows total; individual collection loses the item)
-    setCollections(prev => prev.map(c => ({ ...c, itemCount: Math.max(0, c.itemCount - 1) })));
+    // Decrement the active collection and the "Saved" total (not all collections)
+    setCollections(prev => prev.map(c => {
+      if (c.id === activeId || c.name === "Saved") return { ...c, itemCount: Math.max(0, c.itemCount - 1) };
+      return c;
+    }));
     setRemoving(null);
     toast.success(t.removed);
   }
@@ -246,7 +258,11 @@ export default function Wishlist() {
   }
 
   async function deleteCollection(col: Collection) {
-    await supabase.from("wishlists").delete().eq("id", col.id);
+    const { error } = await supabase.from("wishlists").delete().eq("id", col.id);
+    if (error) {
+      toast.error(t.failedCreateCollection);
+      return;
+    }
     const remaining = collections.filter(c => c.id !== col.id);
     setCollections(remaining);
     const saved = remaining.find(c => c.name === "Saved");

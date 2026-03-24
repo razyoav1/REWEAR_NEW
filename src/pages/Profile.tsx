@@ -41,12 +41,20 @@ export default function Profile() {
   const [activeTab, setActiveTab] = useState<"active" | "sold">("active");
 
   const [editingName, setEditingName] = useState(false);
-  const [nameInput, setNameInput] = useState(profile?.name ?? "");
+  const [nameInput, setNameInput] = useState("");
   const [savingName, setSavingName] = useState(false);
 
   const [editingBio, setEditingBio] = useState(false);
-  const [bioInput, setBioInput] = useState(profile?.bio ?? "");
+  const [bioInput, setBioInput] = useState("");
   const [savingBio, setSavingBio] = useState(false);
+
+  // Sync edit inputs when profile loads (profile is async, useState initializer runs before it arrives)
+  useEffect(() => {
+    if (profile) {
+      setNameInput(profile.name ?? "");
+      setBioInput(profile.bio ?? "");
+    }
+  }, [profile?.id]);
 
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
@@ -98,6 +106,9 @@ export default function Profile() {
   async function handleAvatarChange(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0];
     if (!file || !user) return;
+    const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
+    if (!allowedTypes.includes(file.type)) { toast.error("Please choose a JPEG, PNG, or WebP image"); return; }
+    if (file.size > 10 * 1024 * 1024) { toast.error("Image must be under 10 MB"); return; }
     setUploadingAvatar(true);
     try {
       const compressed = await imageCompression(file, { maxSizeMB: 0.5, maxWidthOrHeight: 512, useWebWorker: true });

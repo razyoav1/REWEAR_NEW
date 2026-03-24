@@ -1,7 +1,7 @@
 import { useState, useCallback, useEffect, useRef } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
-import type { Listing, User, ClothingCategory, ListingCondition } from "@/types";
+import type { Listing, User, ClothingCategory, ClothingGender, ListingCondition, ListingStatus } from "@/types";
 import { calculateDistanceKm } from "@/lib/distance";
 
 export type ListingSort = "newest" | "price_asc" | "price_desc" | "nearest";
@@ -22,7 +22,31 @@ interface UseListingsOptions {
   genderFilter?: string;
 }
 
-function dbRowToListing(row: any, seller?: User, userLat?: number | null, userLng?: number | null): Listing {
+interface RawListingRow {
+  id: string;
+  seller_id: string;
+  title: string;
+  description: string | null;
+  category: string;
+  brand: string | null;
+  condition: string;
+  size_value: string | null;
+  colors: string[] | null;
+  photos: string[];
+  price: number | string;
+  currency: string;
+  status: string;
+  gender: string | null;
+  price_flexible: boolean | null;
+  created_at: string;
+  location_lat?: number | null;
+  location_lng?: number | null;
+  tags?: string[] | null;
+  save_count?: number | null;
+  view_count?: number | null;
+}
+
+function dbRowToListing(row: RawListingRow, seller?: User, userLat?: number | null, userLng?: number | null): Listing {
   let distance: number | undefined;
   if (userLat && userLng && row.location_lat && row.location_lng) {
     distance = calculateDistanceKm(userLat, userLng, row.location_lat, row.location_lng);
@@ -38,20 +62,20 @@ function dbRowToListing(row: any, seller?: User, userLat?: number | null, userLn
       createdAt: row.created_at,
     },
     title: row.title,
-    description: row.description,
+    description: row.description ?? undefined,
     category: row.category as ClothingCategory,
-    brand: row.brand,
-    sizeValue: row.size_value,
+    brand: row.brand ?? undefined,
+    sizeValue: row.size_value ?? undefined,
     condition: row.condition as ListingCondition,
     colors: row.colors ?? [],
-    price: parseFloat(row.price),
+    price: typeof row.price === "number" ? row.price : parseFloat(row.price),
     currency: row.currency,
     photos: row.photos ?? [],
-    locationLat: row.location_lat,
-    locationLng: row.location_lng,
+    locationLat: row.location_lat ?? undefined,
+    locationLng: row.location_lng ?? undefined,
     distance,
-    status: row.status,
-    gender: row.gender ?? "unisex",
+    status: row.status as ListingStatus,
+    gender: (row.gender ?? "unisex") as ClothingGender,
     priceFlexible: row.price_flexible ?? false,
     tags: row.tags ?? [],
     createdAt: row.created_at,
@@ -85,7 +109,7 @@ export function useListings(options: UseListingsOptions = {}) {
 
       if (options.sellerId) query = query.eq("seller_id", options.sellerId);
       if (options.excludeOwnListings && user?.id) query = query.neq("seller_id", user.id);
-      if (options.excludeSellerIds?.length) query = query.not("seller_id", "in", `(${options.excludeSellerIds.join(",")}`);
+      if (options.excludeSellerIds?.length) query = query.not("seller_id", "in", `(${options.excludeSellerIds.join(",")})`);
       if (options.searchQuery?.trim()) {
         query = query.or(`title.ilike.%${options.searchQuery.trim()}%,brand.ilike.%${options.searchQuery.trim()}%`);
       }
@@ -107,7 +131,7 @@ export function useListings(options: UseListingsOptions = {}) {
 
       // Fetch sellers
       const sellerIds = [...new Set(data.map((l) => l.seller_id))];
-      const { data: sellers } = await supabase.from("users").select("*").in("id", sellerIds);
+      const { data: sellers } = await supabase.from("users").select("id, name, avatar_url, location_lat, location_lng, rating_avg, rating_count, last_seen_at, default_radius_km, created_at").in("id", sellerIds);
 
       const sellerMap = new Map<string, User>(
         sellers?.map((s) => [

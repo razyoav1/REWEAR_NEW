@@ -16,13 +16,15 @@ type Status = "open" | "under_review" | "resolved" | "dismissed";
 interface Report {
   id: string;
   reporter_id: string;
+  listing_id: string | null;
+  user_id: string | null;
+  review_id: string | null;
   reason: string;
   details: string | null;
   status: Status;
   resolution_note: string | null;
   created_at: string;
   reporter_name?: string;
-  entity_type?: string;
 }
 
 const STATUS_STYLES: Record<Status, string> = {
@@ -130,7 +132,7 @@ export default function AdminReports() {
                 className="w-full text-left p-4 rounded-2xl bg-card border border-border hover:border-primary/40 transition-all space-y-1">
                 <div className="flex items-start justify-between gap-2">
                   <div>
-                    <p className="font-semibold text-sm capitalize">{r.entity_type} · <span className="text-muted-foreground font-normal">{r.reason.replace(/_/g, " ")}</span></p>
+                    <p className="font-semibold text-sm capitalize">{r.listing_id ? "listing" : r.user_id ? "user" : r.review_id ? "review" : "unknown"} · <span className="text-muted-foreground font-normal">{r.reason.replace(/_/g, " ")}</span></p>
                     <p className="text-xs text-muted-foreground">by {r.reporter_name} · {formatDistanceToNow(new Date(r.created_at), { addSuffix: true })}</p>
                   </div>
                   <span className={cn("text-[10px] font-bold px-2 py-0.5 rounded-full shrink-0", STATUS_STYLES[r.status])}>

@@ -19,7 +19,7 @@ interface ListingRow {
 
 interface SeenRow {
   listing_id: string;
-  seen_at: string;
+  seen_date: string;
   listing: ListingRow | ListingRow[] | null;
 }
 
@@ -48,14 +48,14 @@ export default function RecentlySeen() {
         .from("recently_seen")
         .delete()
         .eq("user_id", user!.id)
-        .lt("seen_at", todayStr);
+        .lt("seen_date", todayStr);
 
       const { data } = await supabase
         .from("recently_seen")
-        .select("listing_id, seen_at, listing:listing_id(id, title, price, currency, photos, status)")
+        .select("listing_id, seen_date, listing:listing_id(id, title, price, currency, photos, status)")
         .eq("user_id", user!.id)
-        .gte("seen_at", todayStr)
-        .order("seen_at", { ascending: false })
+        .gte("seen_date", todayStr)
+        .order("seen_date", { ascending: false })
         .limit(60);
       setItems((data as unknown as SeenRow[]) ?? []);
       setLoading(false);

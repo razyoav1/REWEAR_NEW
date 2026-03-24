@@ -25,6 +25,11 @@ export default function Auth() {
     e.preventDefault();
     setLoading(true);
     try {
+      if (mode === "signup" && password.length < 6) {
+        toast.error("Password must be at least 6 characters");
+        setLoading(false);
+        return;
+      }
       if (mode === "login") {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
@@ -130,6 +135,9 @@ export default function Auth() {
                   {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 </button>
               </div>
+              {mode === "signup" && password.length > 0 && password.length < 6 && (
+                <p className="text-xs text-destructive mt-1">At least 6 characters required</p>
+              )}
             </div>
 
             <Button type="submit" className="w-full mt-2" size="lg" disabled={loading}>

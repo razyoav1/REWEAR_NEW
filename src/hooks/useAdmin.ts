@@ -15,7 +15,8 @@ export function useAdmin() {
       .eq("user_id", user.id)
       .eq("role", "admin")
       .maybeSingle()
-      .then(({ data }) => {
+      .then(({ data, error }) => {
+        if (error) import.meta.env.DEV && console.error("Admin role check failed:", error.message);
         setIsAdmin(!!data);
         setIsLoading(false);
       });

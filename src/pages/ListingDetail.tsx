@@ -148,8 +148,11 @@ export default function ListingDetail() {
   async function handleStatusChange(status: string) {
     if (!id || !listing) return;
     setOwnerAction(true);
-    await supabase.from("clothing_listings").update({ status }).eq("id", id);
+    const { error } = await supabase.from("clothing_listings").update({ status }).eq("id", id);
     setOwnerAction(false);
+    if (error) { toast.error("Failed to update listing status"); return; }
+    // Update local state so UI reflects the change without a page refresh
+    setListing(prev => prev ? { ...prev, status } : prev);
     toast.success(`Listing marked as ${status}`);
 
     // When relisting, notify users who have this item wishlisted
@@ -337,12 +340,20 @@ export default function ListingDetail() {
   }
 
   async function handleShare() {
-    const url = `${window.location.origin}/listings/${id}`;
-    if (navigator.share) {
-      await navigator.share({ title: listing?.title, url });
-    } else {
-      await navigator.clipboard.writeText(url);
-      toast.success(t.linkCopied);
+    const url = `${window.location.origin}/l/${id}`;
+    try {
+      if (navigator.share) {
+        await navigator.share({ title: listing?.title, url });
+      } else {
+        await navigator.clipboard.writeText(url);
+        toast.success(t.linkCopied);
+      }
+    } catch (err) {
+      // User dismissed the share sheet — not an error
+      if ((err as Error).name !== "AbortError") {
+        await navigator.clipboard.writeText(url);
+        toast.success(t.linkCopied);
+      }
     }
   }
 

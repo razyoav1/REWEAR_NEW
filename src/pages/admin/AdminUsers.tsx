@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import { AdminPagination } from "@/components/admin/AdminPagination";
 import { cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
@@ -71,11 +72,12 @@ export default function AdminUsers() {
   async function handleUpdateStatus() {
     if (!selected) return;
     setSaving(true);
-    await supabase.from("users").update({
+    const { error: updateError } = await supabase.from("users").update({
       account_status: newStatus,
       suspension_reason: newStatus !== "active" ? (suspendReason || null) : null,
       suspended_at: newStatus !== "active" ? new Date().toISOString() : null,
     }).eq("id", selected.id);
+    if (updateError) { setSaving(false); toast.error("Failed to update user: " + updateError.message); return; }
     // Notify user when suspended or banned
     if (newStatus === "suspended" || newStatus === "banned") {
       await supabase.from("notifications").insert({

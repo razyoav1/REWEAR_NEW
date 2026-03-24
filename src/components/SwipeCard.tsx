@@ -1,7 +1,7 @@
 import { useState, useRef } from "react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { motion, useMotionValue, useTransform, type PanInfo } from "framer-motion";
-import { MapPin, Star, ChevronLeft, ChevronRight, X, Heart, MessageCircle } from "lucide-react";
+import { MapPin, Star, ChevronLeft, ChevronRight, X, Heart } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { cn, displayPrice } from "@/lib/utils";
@@ -45,9 +45,9 @@ export function SwipeCard({ listing, userCurrency, onSwipeLeft, onSwipeRight, on
   const opacity = useTransform(x, [-250, -80, 0, 80, 250], [0, 1, 1, 1, 0]);
 
   // Swipe indicators
-  const chatOpacity = useTransform(x, [0, 80, 180], [0, 0.9, 1]);
+  const saveRightOpacity = useTransform(x, [0, 80, 180], [0, 0.9, 1]);
   const skipOpacity = useTransform(x, [-180, -80, 0], [1, 0.9, 0]);
-  const saveOpacity = useTransform(y, [-160, -60, 0], [1, 0.9, 0]);
+  const saveUpOpacity = useTransform(y, [-160, -60, 0], [1, 0.9, 0]);
 
   function handleDragEnd(_: unknown, info: PanInfo) {
     const absX = Math.abs(info.offset.x);
@@ -140,13 +140,13 @@ export function SwipeCard({ listing, userCurrency, onSwipeLeft, onSwipeRight, on
         {/* Swipe indicators */}
         {isTop && (
           <>
-            {/* Swipe right = chat */}
+            {/* Swipe right = save */}
             <motion.div
               className="absolute top-16 right-5 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary border-2 border-primary"
-              style={{ opacity: chatOpacity }}
+              style={{ opacity: saveRightOpacity }}
             >
-              <MessageCircle className="w-5 h-5 text-white fill-white" />
-              <span className="text-white font-black text-base tracking-wide">CHAT</span>
+              <Heart className="w-5 h-5 text-white fill-white" />
+              <span className="text-white font-black text-base tracking-wide">SAVE</span>
             </motion.div>
             {/* Swipe left = skip */}
             <motion.div
@@ -158,11 +158,11 @@ export function SwipeCard({ listing, userCurrency, onSwipeLeft, onSwipeRight, on
             </motion.div>
             {/* Swipe up = save */}
             <motion.div
-              className="absolute top-1/3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-secondary border-2 border-secondary"
-              style={{ opacity: saveOpacity }}
+              className="absolute top-1/3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary border-2 border-primary"
+              style={{ opacity: saveUpOpacity }}
             >
-              <Heart className="w-5 h-5 text-black fill-black" />
-              <span className="text-black font-black text-base tracking-wide">SAVE</span>
+              <Heart className="w-5 h-5 text-white fill-white" />
+              <span className="text-white font-black text-base tracking-wide">SAVE</span>
             </motion.div>
           </>
         )}

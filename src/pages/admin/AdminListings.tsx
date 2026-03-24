@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { supabase } from "@/integrations/supabase/client";
+import { toast } from "sonner";
 import { AdminPagination } from "@/components/admin/AdminPagination";
 import { cn, formatPrice } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
@@ -72,7 +73,8 @@ export default function AdminListings() {
   async function handleUpdateStatus() {
     if (!selected) return;
     setSaving(true);
-    await supabase.from("clothing_listings").update({ status: newStatus }).eq("id", selected.id);
+    const { error: updateError } = await supabase.from("clothing_listings").update({ status: newStatus }).eq("id", selected.id);
+    if (updateError) { setSaving(false); toast.error("Failed to update listing: " + updateError.message); return; }
     // Notify seller when listing is hidden by admin
     if (newStatus === "hidden" && selected.status !== "hidden") {
       await supabase.from("notifications").insert({

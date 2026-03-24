@@ -81,31 +81,49 @@ export default function ChatThread() {
 
   useEffect(() => {
     if (!conversationId || !user) return;
+    let cancelled = false;
     async function load() {
       setLoading(true);
       const { data: conv } = await supabase.from("conversations").select("*").eq("id", conversationId).single();
+      if (cancelled) return;
       if (!conv) { setLoading(false); return; }
       const otherId = conv.buyer_id === user!.id ? conv.seller_id : conv.buyer_id;
       const { data: otherUserRow } = await supabase.from("users").select("id, name, avatar_url").eq("id", otherId).single();
+      if (cancelled) return;
       if (otherUserRow) setOtherUser({ id: otherUserRow.id, name: otherUserRow.name, avatarUrl: otherUserRow.avatar_url });
       if (conv.listing_id) {
         const { data: listingRow } = await supabase.from("clothing_listings")
           .select("id, title, photos, price, currency, status").eq("id", conv.listing_id).single();
-        if (listingRow) setListing({ id: listingRow.id, title: listingRow.title, photos: listingRow.photos ?? [], price: parseFloat(listingRow.price), currency: listingRow.currency, status: listingRow.status });
+        if (!cancelled && listingRow) setListing({ id: listingRow.id, title: listingRow.title, photos: listingRow.photos ?? [], price: parseFloat(listingRow.price), currency: listingRow.currency, status: listingRow.status });
       }
-      const { data: msgs } = await supabase.from("messages").select("*").eq("conversation_id", conversationId).order("created_at", { ascending: true });
+      // Limit to last 100 messages to avoid loading entire long conversations
+      const { data: msgs } = await supabase.from("messages").select("*").eq("conversation_id", conversationId).order("created_at", { ascending: true }).limit(100);
+      if (cancelled) return;
       setMessages((msgs ?? []).map(mapMessage));
       setLoading(false);
     }
     load();
+    return () => { cancelled = true; };
   }, [conversationId, user]);
 
-  // Check review eligibility
+  // Check review eligibility — keep these separate to avoid getExistingReview overriding checkCanReview(false)
   useEffect(() => {
     if (!otherUser?.id || !user?.id) return;
     checkCanReview(otherUser.id).then(can => setCanReview(can));
-    getExistingReview(otherUser.id).then(existing => { if (existing) setCanReview(true); });
-  }, [otherUser?.id, user?.id, checkCanReview, getExistingReview]);
+  }, [otherUser?.id, user?.id, checkCanReview]);
+
+  useEffect(() => {
+    if (!otherUser?.id || !user?.id) return;
+    getExistingReview(otherUser.id).then(existing => {
+      if (existing) {
+        setExistingReviewId(existing.id ?? null);
+        setIsEditingReview(true);
+        setReviewRating(existing.rating ?? 5);
+        setReviewText(existing.text ?? "");
+        // Only allow editing an existing review — don't re-enable canReview if checkCanReview said false
+      }
+    });
+  }, [otherUser?.id, user?.id, getExistingReview]);
 
   useEffect(() => {
     if (!conversationId) return;

@@ -44,12 +44,14 @@ export function useFollows(userId?: string) {
     setIsToggling(true);
     try {
       if (isFollowing) {
-        await supabase.from("follows").delete().eq("follower_id", user.id).eq("following_id", userId);
+        const { error } = await supabase.from("follows").delete().eq("follower_id", user.id).eq("following_id", userId);
+        if (error) throw error;
         setIsFollowing(false);
         setFollowerCount(c => Math.max(0, c - 1));
         toast.success("Unfollowed");
       } else {
-        await supabase.from("follows").insert({ follower_id: user.id, following_id: userId });
+        const { error } = await supabase.from("follows").insert({ follower_id: user.id, following_id: userId });
+        if (error) throw error;
         setIsFollowing(true);
         setFollowerCount(c => c + 1);
         toast.success("Following!");

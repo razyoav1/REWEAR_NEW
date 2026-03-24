@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useListings } from "@/hooks/useListings";
+import { useBlocks } from "@/hooks/useBlocks";
 import { CATEGORIES, GENDERS, CONDITION_LABELS, type ClothingCategory, type ListingCondition } from "@/types";
 import { formatDistance } from "@/lib/distance";
 import { displayPrice, getInitials } from "@/lib/utils";
@@ -46,6 +47,8 @@ export default function Search() {
   const navigate = useNavigate();
   const { profile, user } = useAuth();
   const { t } = useLanguage();
+  const { blockedUsers } = useBlocks();
+  const blockedIds = blockedUsers.map(u => u.id);
 
   const [mode, setMode] = useState<SearchMode>("listings");
   const [rawQuery, setRawQuery] = useState("");
@@ -70,7 +73,7 @@ export default function Search() {
   }, [rawQuery]);
 
   // Listing search
-  const { listings, isLoading: listingsLoading } = useListings({
+  const { listings, isLoading: listingsLoading, error: listingsError, refetch: refetchListings } = useListings({
     searchQuery: mode === "listings" ? (query || undefined) : undefined,
     category: category || undefined,
     condition: condition || undefined,
@@ -78,6 +81,7 @@ export default function Search() {
     priceMax,
     genderFilter,
     excludeOwnListings: true,
+    excludeSellerIds: blockedIds,
   });
 
   // People search
@@ -85,19 +89,27 @@ export default function Search() {
     if (mode !== "people") return;
     if (!query.trim()) { setUsers([]); return; }
 
+    let cancelled = false;
     setUsersLoading(true);
-    supabase
-      .from("users")
-      .select("id, name, avatar_url, bio, rating_avg, rating_count")
-      .ilike("name", `%${query.trim()}%`)
-      .neq("id", user?.id ?? "")
-      .limit(20)
-      .then(async ({ data }) => {
-        if (!data?.length) { setUsers([]); setUsersLoading(false); return; }
+
+    async function runPeopleSearch() {
+      try {
+        const { data } = await supabase
+          .from("users")
+          .select("id, name, avatar_url, bio, rating_avg, rating_count")
+          .ilike("name", `%${query.trim()}%`)
+          .neq("id", user?.id ?? "")
+          .limit(20);
+
+        if (cancelled) return;
+        if (!data?.length) { setUsers([]); return; }
+
+        // Filter out blocked users
+        const filtered = data.filter(u => !blockedIds.includes(u.id));
 
         // Fetch listing counts for each user
         const counts = await Promise.all(
-          data.map(u =>
+          filtered.map(u =>
             supabase
               .from("clothing_listings")
               .select("id", { count: "exact", head: true })
@@ -106,11 +118,17 @@ export default function Search() {
               .then(({ count }) => ({ id: u.id, count: count ?? 0 }))
           )
         );
+        if (cancelled) return;
         const countMap = Object.fromEntries(counts.map(c => [c.id, c.count]));
-        setUsers(data.map(u => ({ ...u, listing_count: countMap[u.id] ?? 0 })));
-        setUsersLoading(false);
-      });
-  }, [query, mode, user?.id]);
+        setUsers(filtered.map(u => ({ ...u, listing_count: countMap[u.id] ?? 0 })));
+      } finally {
+        if (!cancelled) setUsersLoading(false);
+      }
+    }
+
+    runPeopleSearch();
+    return () => { cancelled = true; };
+  }, [query, mode, user?.id, blockedIds.join(",")]);
 
   const hasActiveFilters = !!(category || condition || priceMin !== undefined || priceMax !== undefined);
   const activeFilterCount = [category, condition, priceMin !== undefined || priceMax !== undefined ? true : null]
@@ -308,13 +326,27 @@ export default function Search() {
                 </div>
               ))}
             </div>
+          ) : listingsError ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="w-14 h-14 rounded-full bg-destructive/10 flex items-center justify-center mb-4">
+                <X className="w-7 h-7 text-destructive" />
+              </div>
+              <p className="font-semibold mb-1">Something went wrong</p>
+              <p className="text-muted-foreground text-sm mb-4">Couldn't load listings. Please try again.</p>
+              <Button size="sm" onClick={() => refetchListings()}>Try again</Button>
+            </div>
           ) : listings.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <SearchIcon className="w-12 h-12 text-muted-foreground/20 mb-4" />
               <p className="font-semibold mb-1">{t.noResults}</p>
-              <p className="text-muted-foreground text-sm">
+              <p className="text-muted-foreground text-sm mb-4">
                 {query || hasActiveFilters ? t.tryAdjusting : t.startTyping}
               </p>
+              {hasActiveFilters && (
+                <Button size="sm" variant="outline" onClick={clearFilters} className="flex items-center gap-2">
+                  <X className="w-3.5 h-3.5" /> {t.clearAllFilters}
+                </Button>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-2 gap-3">

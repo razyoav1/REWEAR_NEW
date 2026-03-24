@@ -13,8 +13,7 @@ import { useAuth } from "@/contexts/AuthContext";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { useReviews } from "@/hooks/useReviews";
 import { useReports, REPORT_REASONS } from "@/hooks/useReports";
-import { getInitials } from "@/lib/utils";
-import { cn } from "@/lib/utils";
+import { getInitials, cn } from "@/lib/utils";
 import { formatDistanceToNow } from "date-fns";
 
 export default function MyReviews() {

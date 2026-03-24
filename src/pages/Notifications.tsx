@@ -1,7 +1,7 @@
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import { formatDistanceToNow } from "date-fns";
-import { ArrowLeft, Bell, MessageCircle, UserPlus, Heart, Star, Tag, ShieldAlert, AlertTriangle, RefreshCw, CheckCheck } from "lucide-react";
+import { ArrowLeft, ArrowRight, Bell, MessageCircle, UserPlus, Heart, Star, Tag, ShieldAlert, AlertTriangle, RefreshCw, CheckCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useNotifications, type AppNotification } from "@/contexts/NotificationsContext";
@@ -66,9 +66,7 @@ export default function Notifications() {
       <div className="flex items-center gap-3 px-5 pt-14 pb-4 border-b border-border">
         <button onClick={() => navigate(-1)}
           className="w-9 h-9 rounded-full bg-muted flex items-center justify-center shrink-0">
-          {isRTL
-            ? <ArrowLeft className="w-5 h-5 rotate-180" />
-            : <ArrowLeft className="w-5 h-5" />}
+          {isRTL ? <ArrowRight className="w-5 h-5" /> : <ArrowLeft className="w-5 h-5" />}
         </button>
         <h1 className="text-xl font-bold flex-1">{t.notificationsTitle}</h1>
         {unread > 0 && (

@@ -53,10 +53,13 @@ export default function AdminConversations() {
     const userIds = [...new Set([...data.map(c => c.buyer_id), ...data.map(c => c.seller_id)])];
     const listingIds = [...new Set(data.filter(c => c.listing_id).map(c => c.listing_id as string))];
 
-    const [{ data: users }, { data: listings }] = await Promise.all([
+    const [usersResult, listingsResult] = await Promise.all([
       supabase.from("users").select("id, name").in("id", userIds),
-      listingIds.length ? supabase.from("clothing_listings").select("id, title").in("id", listingIds) : Promise.resolve({ data: [] }),
+      listingIds.length ? supabase.from("clothing_listings").select("id, title").in("id", listingIds) : Promise.resolve({ data: [], error: null }),
     ]);
+    if (usersResult.error) { import.meta.env.DEV && console.error("Failed to load conversation users:", usersResult.error.message); setLoading(false); return; }
+    const users = usersResult.data;
+    const listings = listingsResult.data;
 
     const userMap = new Map(users?.map(u => [u.id, u.name]) ?? []);
     const listingMap = new Map((listings ?? []).map(l => [l.id, l.title]));

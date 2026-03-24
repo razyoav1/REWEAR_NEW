@@ -151,7 +151,6 @@ function AppRoutes() {
         <Route path="/messages" element={<Messages />} />
         <Route path="/profile" element={<Profile />} />
         <Route path="/users/:id" element={<SellerProfile />} />
-        <Route path="/l/:id" element={<ListingShare />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/settings/blocked" element={<BlockedUsers />} />
         <Route path="/settings/reports" element={<ReportHistory />} />
@@ -163,6 +162,9 @@ function AppRoutes() {
         <Route path="/notifications" element={<Notifications />} />
         <Route path="/activity" element={<Activity />} />
       </Route>
+
+      {/* Shareable listing link — public, no login required */}
+      <Route path="/l/:id" element={<ListingShare />} />
 
       {/* Full-screen flows — protected but no bottom nav */}
       <Route path="/listings/:id" element={<ProtectedRoute><ListingDetail /></ProtectedRoute>} />

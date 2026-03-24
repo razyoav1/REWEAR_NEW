@@ -36,6 +36,13 @@ export default function Settings() {
     if (profile?.default_radius_km != null) setRadius(profile.default_radius_km);
   }, [profile?.default_radius_km]);
 
+  // Clear debounce timer on unmount to prevent state updates on unmounted component
+  useEffect(() => {
+    return () => {
+      if (radiusTimerRef.current) clearTimeout(radiusTimerRef.current);
+    };
+  }, []);
+
   const name = profile?.name ?? "You";
   const currency = profile?.currency ?? "USD";
 
@@ -56,13 +63,15 @@ export default function Settings() {
 
   async function handleUpdateLocation() {
     if (!navigator.geolocation) { toast.error(t.geolocationUnavailable); return; }
+    if (!user) return;
+    const userId = user.id; // capture before async callback to avoid stale reference
     setUpdatingLocation(true);
     navigator.geolocation.getCurrentPosition(
       async (pos) => {
         await supabase.from("users").update({
           location_lat: pos.coords.latitude,
           location_lng: pos.coords.longitude,
-        }).eq("id", user!.id);
+        }).eq("id", userId);
         await refreshProfile();
         toast.success(t.locationUpdated);
         setUpdatingLocation(false);
