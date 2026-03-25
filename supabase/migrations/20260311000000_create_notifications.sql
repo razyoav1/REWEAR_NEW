@@ -124,7 +124,7 @@ BEGIN
     NEW.reviewee_id,
     'review_received',
     COALESCE(v_reviewer_name, 'Someone') || ' left you a review',
-    NEW.rating::text || '★ — ' || COALESCE(LEFT(NEW.body, 60), 'No comment'),
+    NEW.rating::text || '★ — ' || COALESCE(LEFT(NEW.text, 60), 'No comment'),
     jsonb_build_object(
       'reviewer_id', NEW.reviewer_id,
       'reviewer_name', COALESCE(v_reviewer_name, 'Someone'),

@@ -1,4 +1,4 @@
-import { useState, useCallback, useRef, useEffect } from "react";
+import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { SlidersHorizontal, Compass, DollarSign, MapPin, Clock, Settings, RotateCcw, Search } from "lucide-react";
@@ -61,28 +61,29 @@ export default function Index() {
   const [doneIds, setDoneIds] = useState<Set<string>>(new Set());
   const [history, setHistory] = useState<HistoryEntry[]>([]);
   const [seenIds, setSeenIds] = useState<string[]>([]);
+  const [interactedIdsLoading, setInteractedIdsLoading] = useState(true);
   const [listingToSave, setListingToSave] = useState<Listing | null>(null);
 
   const { blockedUsers, isLoading: blocksLoading } = useBlocks();
   const blockedSellerIds = blockedUsers.map(u => u.id);
 
-  // Load previously seen/saved listing IDs from localStorage + Supabase
+  // Load ALL previously seen/saved listing IDs before showing the feed.
+  // Queries BOTH listing_interactions AND wishlist_items — this way a listing
+  // already in the wishlist (saved via any path, including ListingDetail or
+  // direct wishlist add) is never shown in discover again.
   useEffect(() => {
-    if (!user) return;
-    // Read from localStorage immediately (covers items saved via ListingDetail before DB write completes)
+    if (!user) { setInteractedIdsLoading(false); return; }
+    setInteractedIdsLoading(true);
     const localSaved: string[] = JSON.parse(localStorage.getItem("rewear_saved_ids") || "[]");
-    if (localSaved.length > 0) setSeenIds(localSaved);
-    // Merge with DB results
-    supabase
-      .from("listing_interactions")
-      .select("listing_id")
-      .eq("user_id", user.id)
-      .then(({ data }) => {
-        if (data?.length) {
-          const dbIds = data.map((r: { listing_id: string }) => r.listing_id);
-          setSeenIds(prev => [...new Set([...prev, ...dbIds])]);
-        }
-      });
+    Promise.all([
+      supabase.from("listing_interactions").select("listing_id").eq("user_id", user.id),
+      supabase.from("wishlist_items").select("listing_id").eq("user_id", user.id),
+    ]).then(([interactions, wishlist]) => {
+      const interactionIds = (interactions.data ?? []).map((r: { listing_id: string }) => r.listing_id);
+      const wishlistIds = (wishlist.data ?? []).map((r: { listing_id: string }) => r.listing_id);
+      setSeenIds([...new Set([...localSaved, ...interactionIds, ...wishlistIds])]);
+      setInteractedIdsLoading(false);
+    });
   }, [user?.id]);
 
   const { listings: raw, isLoading, refetch } = useListings({
@@ -97,7 +98,9 @@ export default function Index() {
     userLng: profile?.location_lng,
   });
 
-  const listings = raw.filter((l) => !doneIds.has(l.id) && !seenIds.includes(l.id));
+  // Use a Set for O(1) lookups — seenIds array can grow large
+  const seenSet = useMemo(() => new Set(seenIds), [seenIds]);
+  const listings = raw.filter((l) => !doneIds.has(l.id) && !seenSet.has(l.id));
   const current = listings[0];
   const next = listings[1];
 
@@ -113,8 +116,8 @@ export default function Index() {
   }, [current?.id, user?.id]);
 
   function dismiss(listing: Listing, action: SwipeAction) {
-    // Only track skips in history (max 5 for daily undo limit)
-    if (action === "skip") setHistory((h) => [...h.slice(-(UNDO_MAX - 1)), { listing, action }]);
+    // Track ALL actions in history so any swipe can be undone
+    setHistory((h) => [...h.slice(-(UNDO_MAX - 1)), { listing, action }]);
     setDoneIds((s) => new Set([...s, listing.id]));
     // Also add to seenIds so item doesn't reappear after feed refresh
     setSeenIds((prev) => [...prev, listing.id]);
@@ -126,7 +129,9 @@ export default function Index() {
     supabase.from("listing_interactions").upsert(
       { user_id: user.id, listing_id: current.id, action: "declined" },
       { onConflict: "user_id,listing_id" }
-    ).then(() => {});
+    ).then(({ error }) => {
+      if (error) import.meta.env.DEV && console.error("interaction write failed:", error.message);
+    });
   }, [current, user]);
 
   const handleSave = useCallback(async () => {
@@ -135,7 +140,9 @@ export default function Index() {
     supabase.from("listing_interactions").upsert(
       { user_id: user.id, listing_id: current.id, action: "saved" },
       { onConflict: "user_id,listing_id" }
-    ).then(() => {});
+    ).then(({ error }) => {
+      if (error) import.meta.env.DEV && console.error("interaction write failed:", error.message);
+    });
 
     // Show collection picker only when user has custom collections (>1 total)
     const { data: colsData } = await supabase
@@ -172,7 +179,9 @@ export default function Index() {
     supabase.from("listing_interactions").upsert(
       { user_id: user.id, listing_id: current.id, action: "seen" },
       { onConflict: "user_id,listing_id" }
-    ).then(() => {});
+    ).then(({ error }) => {
+      if (error) import.meta.env.DEV && console.error("interaction write failed:", error.message);
+    });
     const { data: existing } = await supabase
       .from("conversations").select("id")
       .eq("listing_id", current.id).eq("buyer_id", user.id).maybeSingle();
@@ -218,7 +227,7 @@ export default function Index() {
       <div className="flex items-center justify-between px-5 pt-14 pb-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">
-            {t.discover} <span className="gradient-text">{t.drops}</span>
+            RE<span className="gradient-text">-WEAR</span>
           </h1>
           <p className="text-muted-foreground text-sm">{t.swipeToFind}</p>
         </div>
@@ -284,7 +293,7 @@ export default function Index() {
 
       <div className="flex-1 flex flex-col px-4 pb-[88px] gap-4" style={{ minHeight: 0 }}>
         <div className="relative flex-1" style={{ minHeight: "55vh" }}>
-          {isLoading ? (
+          {isLoading || interactedIdsLoading ? (
             <Skeleton className="absolute inset-0 rounded-3xl" />
           ) : current ? (
             <AnimatePresence>
@@ -298,7 +307,7 @@ export default function Index() {
               )}
               <SwipeCard key={current.id} listing={current}
                 userCurrency={profile?.currency ?? "USD"}
-                onSwipeLeft={handleSkip} onSwipeRight={handleSave} onSwipeUp={handleSave}
+                onSwipeLeft={handleSkip} onSwipeRight={handleSave}
                 onTap={() => navigate(`/listings/${current.id}`)} isTop={true} />
             </AnimatePresence>
           ) : (
@@ -326,7 +335,7 @@ export default function Index() {
           )}
         </div>
 
-        {!isLoading && current && (
+        {!isLoading && !interactedIdsLoading && current && (
           <ActionButtons onSkip={handleSkip} onSave={handleSave} onChat={handleChat}
             onUndo={handleUndo} canUndo={history.length > 0} />
         )}

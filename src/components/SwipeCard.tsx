@@ -28,36 +28,26 @@ interface SwipeCardProps {
   userCurrency: string;
   onSwipeLeft: () => void;
   onSwipeRight: () => void;
-  onSwipeUp: () => void;
   onTap: () => void;
   isTop: boolean;
 }
 
-export function SwipeCard({ listing, userCurrency, onSwipeLeft, onSwipeRight, onSwipeUp, onTap, isTop }: SwipeCardProps) {
+export function SwipeCard({ listing, userCurrency, onSwipeLeft, onSwipeRight, onTap, isTop }: SwipeCardProps) {
   const { t } = useLanguage();
   const [photoIndex, setPhotoIndex] = useState(0);
-  const [exitDir, setExitDir] = useState<"left" | "right" | "up" | null>(null);
+  const [exitDir, setExitDir] = useState<"left" | "right" | null>(null);
   const hasDragged = useRef(false);
 
   const x = useMotionValue(0);
-  const y = useMotionValue(0);
   const rotate = useTransform(x, [-300, 300], [-20, 20]);
   const opacity = useTransform(x, [-250, -80, 0, 80, 250], [0, 1, 1, 1, 0]);
 
   // Swipe indicators
   const saveRightOpacity = useTransform(x, [0, 80, 180], [0, 0.9, 1]);
   const skipOpacity = useTransform(x, [-180, -80, 0], [1, 0.9, 0]);
-  const saveUpOpacity = useTransform(y, [-160, -60, 0], [1, 0.9, 0]);
 
   function handleDragEnd(_: unknown, info: PanInfo) {
-    const absX = Math.abs(info.offset.x);
-    const absY = Math.abs(info.offset.y);
-
-    // Swipe up takes priority if mostly vertical
-    if (info.offset.y < -80 && absY > absX) {
-      setExitDir("up");
-      onSwipeUp();
-    } else if (info.offset.x > 100) {
+    if (info.offset.x > 100) {
       setExitDir("right");
       onSwipeRight();
     } else if (info.offset.x < -100) {
@@ -73,7 +63,6 @@ export function SwipeCard({ listing, userCurrency, onSwipeLeft, onSwipeRight, on
   const exitAnim =
     exitDir === "right" ? { x: 600, rotate: 30, opacity: 0 } :
     exitDir === "left"  ? { x: -600, rotate: -30, opacity: 0 } :
-    exitDir === "up"    ? { y: -600, scale: 0.8, opacity: 0 } :
     {};
 
   const photos = listing.photos.length > 0 ? listing.photos : [];
@@ -81,9 +70,9 @@ export function SwipeCard({ listing, userCurrency, onSwipeLeft, onSwipeRight, on
   return (
     <motion.div
       className={cn("absolute inset-0 w-full h-full cursor-grab active:cursor-grabbing", !isTop && "pointer-events-none")}
-      style={{ x, y, rotate, opacity }}
-      drag={isTop}
-      dragConstraints={{ left: 0, right: 0, top: 0, bottom: 0 }}
+      style={{ x, rotate, opacity }}
+      drag={isTop ? "x" : false}
+      dragConstraints={{ left: 0, right: 0 }}
       dragElastic={0.8}
       onDragStart={() => { hasDragged.current = false; }}
       onDrag={(_, info) => { if (Math.abs(info.offset.x) > 8 || Math.abs(info.offset.y) > 8) hasDragged.current = true; }}
@@ -156,15 +145,7 @@ export function SwipeCard({ listing, userCurrency, onSwipeLeft, onSwipeRight, on
               <X className="w-5 h-5 text-white" strokeWidth={3} />
               <span className="text-white font-black text-base tracking-wide">SKIP</span>
             </motion.div>
-            {/* Swipe up = save */}
-            <motion.div
-              className="absolute top-1/3 left-1/2 -translate-x-1/2 flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-primary border-2 border-primary"
-              style={{ opacity: saveUpOpacity }}
-            >
-              <Heart className="w-5 h-5 text-white fill-white" />
-              <span className="text-white font-black text-base tracking-wide">SAVE</span>
-            </motion.div>
-          </>
+</>
         )}
 
         {/* Top badges */}
