@@ -91,10 +91,16 @@ function BannedScreen() {
   );
 }
 
+// A user has completed onboarding if the flag is true OR they already have a name set.
+// This prevents false redirects to onboarding after fresh Xcode builds clear localStorage.
+function hasCompletedOnboarding(profile: ReturnType<typeof useAuth>["profile"]) {
+  return !!(profile?.onboarding_completed || profile?.name);
+}
+
 function AuthRoute({ children }: { children: React.ReactNode }) {
   const { user, profile, loading, profileFetched } = useAuth();
   if (loading || (user && !profileFetched)) return <Spinner />;
-  if (user) return <Navigate to={profile?.onboarding_completed ? "/" : "/onboarding"} replace />;
+  if (user) return <Navigate to={hasCompletedOnboarding(profile) ? "/" : "/onboarding"} replace />;
   return <>{children}</>;
 }
 
@@ -103,7 +109,7 @@ function ProtectedRoute({ children }: { children: React.ReactNode }) {
   if (loading || (user && !profileFetched)) return <Spinner />;
   if (!user) return <Navigate to="/auth" replace />;
   if (profile?.account_status === "banned") return <BannedScreen />;
-  if (!profile?.onboarding_completed) return <Navigate to="/onboarding" replace />;
+  if (!hasCompletedOnboarding(profile)) return <Navigate to="/onboarding" replace />;
   return <>{children}</>;
 }
 
@@ -112,7 +118,7 @@ function OnboardingRoute({ children }: { children: React.ReactNode }) {
   if (loading || (user && !profileFetched)) return <Spinner />;
   if (!user) return <Navigate to="/auth" replace />;
   if (profile?.account_status === "banned") return <BannedScreen />;
-  if (profile?.onboarding_completed) return <Navigate to="/" replace />;
+  if (hasCompletedOnboarding(profile)) return <Navigate to="/" replace />;
   return <>{children}</>;
 }
 
