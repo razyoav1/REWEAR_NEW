@@ -159,7 +159,7 @@ export function useListings(options: UseListingsOptions = {}) {
       if (sort === "nearest") mapped = mapped.sort((a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity));
       setListings(mapped);
     } catch (err) {
-      console.error("Error fetching listings:", err);
+      import.meta.env.DEV && console.error("Error fetching listings:", err);
       setError(err as Error);
     } finally {
       setIsLoading(false);
