@@ -32,11 +32,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       .select("*")
       .eq("id", userId)
       .single();
-    if (error && error.code !== "PGRST116") {
-      // PGRST116 = row not found (expected for new Google OAuth users before onboarding)
-      import.meta.env.DEV && console.error("fetchProfile failed:", error.message);
+
+    if (error && error.code === "PGRST116") {
+      // No profile row yet — auto-create one from OAuth user metadata
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      const meta = authUser?.user_metadata ?? {};
+      const name = meta.full_name || meta.name || meta.email?.split("@")[0] || "User";
+      const avatar_url = meta.avatar_url || meta.picture || null;
+
+      const { data: created, error: createError } = await supabase
+        .from("users")
+        .insert({
+          id: userId,
+          name,
+          avatar_url,
+          onboarding_completed: true,
+        })
+        .select("*")
+        .single();
+
+      if (createError) {
+        console.error("Auto-create profile failed:", createError.message);
+      } else {
+        setProfile(created as UserProfile | null);
+        setProfileFetched(true);
+        return;
+      }
+    } else if (error) {
+      console.error("fetchProfile failed:", error.message);
     }
-    // Always update profile state (null if row doesn't exist)
+
     setProfile(data as UserProfile | null);
     setProfileFetched(true);
   }
