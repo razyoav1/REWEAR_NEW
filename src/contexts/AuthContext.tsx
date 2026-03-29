@@ -115,6 +115,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // Close the in-app browser first
         await Browser.close().catch(() => {});
 
+        // Wait for SFSafariViewController dismissal animation to finish.
+        // iOS blocks WKWebView network requests while the modal is still animating out.
+        await new Promise(resolve => setTimeout(resolve, 600));
+
         // Use string operations only — new URL() throws for custom dotted schemes in WebKit
 
         // PKCE flow: ?code= in query string (primary path with flowType: 'pkce')
