@@ -82,12 +82,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     );
 
-    // Handle Google OAuth deep-link callback on iOS (com.rewear.yoavraz://login-callback?code=...)
+    // Handle Google OAuth deep-link callback on iOS (com.rewear.yoavraz://login-callback#access_token=...)
     let removeUrlListener: (() => void) | undefined;
     if (Capacitor.isNativePlatform()) {
       CapApp.addListener("appUrlOpen", async ({ url }) => {
         if (!url.startsWith("com.rewear.yoavraz://login-callback")) return;
-        // Close the in-app browser
+        // Close the in-app browser first
         await Browser.close().catch(() => {});
 
         // Use string operations only — new URL() throws for custom dotted schemes in WebKit
@@ -95,8 +95,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         // PKCE flow: ?code= in query string
         const codeMatch = url.match(/[?&]code=([^&#]+)/);
         if (codeMatch?.[1]) {
-          const { error } = await supabase.auth.exchangeCodeForSession(decodeURIComponent(codeMatch[1]));
-          if (error) import.meta.env.DEV && console.error("exchangeCodeForSession failed:", error.message);
+          const { data, error } = await supabase.auth.exchangeCodeForSession(decodeURIComponent(codeMatch[1]));
+          if (error) {
+            console.error("exchangeCodeForSession failed:", error.message);
+            return;
+          }
+          // Manually update state — onAuthStateChange may lag on native
+          if (data.user) {
+            setUser(data.user);
+            setSession(data.session);
+            setProfileFetched(false);
+            await fetchProfile(data.user.id);
+          }
           return;
         }
 
@@ -107,8 +117,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const access_token = params.get("access_token");
           const refresh_token = params.get("refresh_token") ?? "";
           if (access_token) {
-            const { error } = await supabase.auth.setSession({ access_token, refresh_token });
-            if (error) import.meta.env.DEV && console.error("setSession failed:", error.message);
+            const { data, error } = await supabase.auth.setSession({ access_token, refresh_token });
+            if (error) {
+              console.error("setSession failed:", error.message);
+              return;
+            }
+            // Manually update state — onAuthStateChange may lag on native
+            if (data.user) {
+              setUser(data.user);
+              setSession(data.session);
+              setProfileFetched(false);
+              await fetchProfile(data.user.id);
+            }
           }
         }
       }).then(handle => { removeUrlListener = () => handle.remove(); });
