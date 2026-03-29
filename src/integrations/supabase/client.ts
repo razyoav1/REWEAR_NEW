@@ -12,6 +12,6 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true,
-    flowType: 'pkce', // Use PKCE for mobile — avoids setSession lock deadlock on iOS
+    // flowType defaults to 'implicit' — our appUrlOpen handler decodes JWT locally, no setSession needed
   },
 });
