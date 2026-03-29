@@ -3,8 +3,11 @@ import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import {
   ArrowLeft, ChevronRight, LogOut, Bell, Shield, HelpCircle,
-  MapPin, DollarSign, Loader2, Check, Languages, Clock, Sun,
+  MapPin, DollarSign, Loader2, Check, Languages, Clock, Sun, Trash2, FileText,
 } from "lucide-react";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Separator } from "@/components/ui/separator";
@@ -27,6 +30,8 @@ export default function Settings() {
   const { lang, setLang, t } = useLanguage();
   const { theme, setTheme } = useTheme();
   const [savingCurrency, setSavingCurrency] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
+  const [deletingAccount, setDeletingAccount] = useState(false);
   const [updatingLocation, setUpdatingLocation] = useState(false);
   const [radius, setRadius] = useState(profile?.default_radius_km ?? 30);
   const radiusTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -93,6 +98,20 @@ export default function Settings() {
   async function handleSignOut() {
     await signOut();
     navigate("/auth");
+  }
+
+  async function handleDeleteAccount() {
+    setDeletingAccount(true);
+    try {
+      const { error } = await supabase.functions.invoke("delete-account");
+      if (error) throw error;
+      await signOut();
+      navigate("/auth");
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Failed to delete account. Please try again.");
+      setDeletingAccount(false);
+      setShowDeleteDialog(false);
+    }
   }
 
   return (
@@ -294,6 +313,10 @@ export default function Settings() {
           </p>
           <div className="bg-card rounded-2xl border border-border overflow-hidden">
             <SettingsRow icon={HelpCircle} label={t.helpFAQ} onClick={() => navigate("/help")} />
+            <Separator />
+            <SettingsRow icon={FileText} label="Terms of Service" onClick={() => navigate("/terms")} />
+            <Separator />
+            <SettingsRow icon={FileText} label="Privacy Policy" onClick={() => navigate("/privacy")} />
           </div>
         </section>
 
@@ -306,9 +329,44 @@ export default function Settings() {
           <LogOut className="w-4 h-4" /> {t.signOutBtn}
         </Button>
 
+        {/* Danger zone */}
+        <section>
+          <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-3 px-1">
+            Danger Zone
+          </p>
+          <button
+            onClick={() => setShowDeleteDialog(true)}
+            className="flex items-center gap-3 w-full px-4 py-3.5 rounded-2xl border border-destructive/40 text-destructive hover:bg-destructive/5 transition-colors text-left"
+          >
+            <Trash2 className="w-4 h-4 shrink-0" />
+            <span className="text-sm font-medium">Delete my account</span>
+          </button>
+        </section>
+
         {/* App version */}
         <p className="text-center text-xs text-muted-foreground/50 pt-2">{t.appVersion}</p>
       </div>
+
+      {/* Delete account confirmation dialog */}
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete your account?</DialogTitle>
+            <DialogDescription>
+              This will permanently delete your account, all your listings, messages, and data.
+              This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2">
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)} disabled={deletingAccount}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={handleDeleteAccount} disabled={deletingAccount}>
+              {deletingAccount ? <Loader2 className="w-4 h-4 animate-spin" /> : "Delete account"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

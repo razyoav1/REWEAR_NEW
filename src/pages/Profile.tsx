@@ -108,7 +108,7 @@ export default function Profile() {
     if (!file || !user) return;
     const allowedTypes = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
     if (!allowedTypes.includes(file.type)) { toast.error("Please choose a JPEG, PNG, or WebP image"); return; }
-    if (file.size > 10 * 1024 * 1024) { toast.error("Image must be under 10 MB"); return; }
+    if (file.size > 5 * 1024 * 1024) { toast.error("Image must be under 5 MB"); return; }
     setUploadingAvatar(true);
     try {
       const compressed = await imageCompression(file, { maxSizeMB: 0.5, maxWidthOrHeight: 512, useWebWorker: true });

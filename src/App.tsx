@@ -10,6 +10,7 @@ import { Toaster } from "@/components/ui/sonner";
 import { useAdmin } from "@/hooks/useAdmin";
 import { ShieldOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 // Pages
 import Auth from "@/pages/Auth";
@@ -35,6 +36,8 @@ import MyReviews from "@/pages/MyReviews";
 import Notifications from "@/pages/Notifications";
 import Activity from "@/pages/Activity";
 import NotFound from "@/pages/NotFound";
+import TermsOfService from "@/pages/TermsOfService";
+import PrivacyPolicy from "@/pages/PrivacyPolicy";
 
 // Admin pages
 import AdminDashboard from "@/pages/admin/AdminDashboard";
@@ -125,8 +128,10 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
 function AppRoutes() {
   return (
     <Routes>
-      {/* Public */}
+      {/* Public — no auth required */}
       <Route path="/auth" element={<AuthRoute><Auth /></AuthRoute>} />
+      <Route path="/terms" element={<TermsOfService />} />
+      <Route path="/privacy" element={<PrivacyPolicy />} />
 
       {/* Onboarding */}
       <Route
@@ -198,7 +203,9 @@ export default function App() {
           <AuthProvider>
             <LanguageProvider>
               <NotificationsProvider>
-                <AppRoutes />
+                <ErrorBoundary>
+                  <AppRoutes />
+                </ErrorBoundary>
                 <Toaster />
               </NotificationsProvider>
             </LanguageProvider>

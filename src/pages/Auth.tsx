@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { toast } from "sonner";
 import { Eye, EyeOff } from "lucide-react";
+import { Link } from "react-router-dom";
 import rewearLogo from "@/assets/rewear_logo_circle_transparent.png";
 import { useLanguage } from "@/contexts/LanguageContext";
 
@@ -162,6 +163,15 @@ export default function Auth() {
             <span className="text-xs text-muted-foreground font-medium">{t.or}</span>
             <div className="flex-1 h-px bg-border" />
           </div>
+
+          {mode === "signup" && (
+            <p className="text-xs text-center text-muted-foreground">
+              By signing up you agree to our{" "}
+              <Link to="/terms" className="underline text-foreground">Terms of Service</Link>
+              {" "}and{" "}
+              <Link to="/privacy" className="underline text-foreground">Privacy Policy</Link>.
+            </p>
+          )}
 
           <div className="flex flex-col gap-3">
             <Button variant="outline" className="w-full" size="lg" onClick={handleGoogle}>
