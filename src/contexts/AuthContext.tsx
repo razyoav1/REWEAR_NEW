@@ -121,27 +121,69 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         // Use string operations only — new URL() throws for custom dotted schemes in WebKit
 
-        // PKCE flow: ?code= in query string (primary path with flowType: 'pkce')
+        // PKCE flow: ?code= in query string
         const codeMatch = url.match(/[?&]code=([^&#]+)/);
         if (codeMatch?.[1]) {
-          console.log("[OAuth] PKCE flow, exchanging code...");
-          const { data, error } = await supabase.auth.exchangeCodeForSession(decodeURIComponent(codeMatch[1]));
-          if (error) {
-            console.error("[OAuth] exchangeCodeForSession failed:", error.message);
-            return;
+          const code = decodeURIComponent(codeMatch[1]);
+          console.log("[OAuth] PKCE code received, finding verifier in localStorage...");
+
+          // Supabase may store the verifier under different key variants — check all
+          let codeVerifier: string | null = null;
+          const verifierKeys = [
+            "sb-jddcaaasineiikfzhjel-auth-token-code-verifier",
+            "supabase.auth.token-code-verifier",
+            "sb-api-auth-token-code-verifier",
+          ];
+          for (const k of verifierKeys) {
+            codeVerifier = localStorage.getItem(k);
+            if (codeVerifier) { console.log("[OAuth] verifier found at:", k); break; }
           }
-          console.log("[OAuth] exchange success, user:", data.user?.id);
-          if (data.user) {
-            setUser(data.user);
-            setSession(data.session);
-            setProfileFetched(false);
-            await fetchProfile(data.user.id);
-            console.log("[OAuth] done.");
+          if (!codeVerifier) {
+            for (let i = 0; i < localStorage.length; i++) {
+              const k = localStorage.key(i) ?? "";
+              if (k.includes("verifier") || k.includes("pkce")) {
+                codeVerifier = localStorage.getItem(k);
+                console.log("[OAuth] verifier found by scan:", k); break;
+              }
+            }
           }
+          console.log("[OAuth] verifier present:", !!codeVerifier);
+
+          try {
+            // Use raw fetch — supabase.auth.exchangeCodeForSession() throws instead of returning
+            // errors (known bug) and can deadlock on iOS native due to internal lock mechanism
+            const SUPABASE_URL = import.meta.env.VITE_SUPABASE_URL as string;
+            const SUPABASE_KEY = import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY as string;
+            console.log("[OAuth] raw token exchange...");
+            const res = await fetch(`${SUPABASE_URL}/auth/v1/token?grant_type=pkce`, {
+              method: "POST",
+              headers: { "Content-Type": "application/json", "apikey": SUPABASE_KEY },
+              body: JSON.stringify({ auth_code: code, code_verifier: codeVerifier ?? "" }),
+            });
+            const tokenData = await res.json();
+            if (!res.ok) {
+              console.error("[OAuth] exchange failed:", res.status, JSON.stringify(tokenData));
+              return;
+            }
+            console.log("[OAuth] exchange success, user:", tokenData.user?.id);
+            const nowSecs = Math.floor(Date.now() / 1000);
+            localStorage.setItem("sb-jddcaaasineiikfzhjel-auth-token", JSON.stringify({
+              access_token: tokenData.access_token, refresh_token: tokenData.refresh_token,
+              token_type: tokenData.token_type ?? "bearer", expires_in: tokenData.expires_in ?? 3600,
+              expires_at: nowSecs + (tokenData.expires_in ?? 3600), user: tokenData.user,
+            }));
+            if (tokenData.user) {
+              setUser(tokenData.user);
+              setSession({ access_token: tokenData.access_token, refresh_token: tokenData.refresh_token, token_type: tokenData.token_type ?? "bearer", expires_in: tokenData.expires_in ?? 3600, expires_at: nowSecs + (tokenData.expires_in ?? 3600), user: tokenData.user } as Session);
+              setProfileFetched(false);
+              await fetchProfile(tokenData.user.id);
+              console.log("[OAuth] done!");
+            }
+          } catch (e) { console.error("[OAuth] raw exchange error:", e); }
           return;
         }
 
-        // Fallback: implicit flow (#access_token in hash) — decode JWT locally, no setSession call
+        // Fallback: implicit flow (#access_token in hash) — decode JWT locally, no network calls
         const hashIndex = url.indexOf("#");
         if (hashIndex !== -1) {
           console.log("[OAuth] implicit fallback flow...");
@@ -150,33 +192,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           const refresh_token = params.get("refresh_token") ?? "";
           if (access_token) {
             try {
-              // Decode JWT payload without any network call
               const payload = JSON.parse(atob(access_token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
               const nowSecs = Math.floor(Date.now() / 1000);
-              // Write session directly to localStorage — avoids setSession lock deadlock
               localStorage.setItem("sb-jddcaaasineiikfzhjel-auth-token", JSON.stringify({
                 access_token, refresh_token, token_type: "bearer",
                 expires_in: Math.max(0, (payload.exp || 0) - nowSecs),
                 expires_at: payload.exp || nowSecs + 3600,
-                user: {
-                  id: payload.sub, email: payload.email, role: payload.role ?? "authenticated",
-                  aud: payload.aud ?? "authenticated", created_at: payload.created_at ?? "",
-                  user_metadata: payload.user_metadata ?? {}, app_metadata: payload.app_metadata ?? {},
-                },
+                user: { id: payload.sub, email: payload.email, role: payload.role ?? "authenticated", aud: payload.aud ?? "authenticated", created_at: payload.created_at ?? "", user_metadata: payload.user_metadata ?? {}, app_metadata: payload.app_metadata ?? {} },
               }));
-              // Now load session from localStorage — no network call needed
-              const { data } = await supabase.auth.getSession();
-              console.log("[OAuth] implicit fallback session loaded:", data.session?.user?.id);
-              if (data.session?.user) {
-                setUser(data.session.user);
-                setSession(data.session);
-                setProfileFetched(false);
-                await fetchProfile(data.session.user.id);
-                console.log("[OAuth] done.");
-              }
-            } catch (e) {
-              console.error("[OAuth] implicit fallback failed:", e);
-            }
+              setUser({ id: payload.sub, email: payload.email, user_metadata: payload.user_metadata ?? {}, app_metadata: payload.app_metadata ?? {}, aud: payload.aud ?? "authenticated", created_at: payload.created_at ?? "" } as User);
+              setProfileFetched(false);
+              await fetchProfile(payload.sub);
+              console.log("[OAuth] implicit done!");
+            } catch (e) { console.error("[OAuth] implicit fallback failed:", e); }
           }
         }
       }).then(handle => { removeUrlListener = () => handle.remove(); });
