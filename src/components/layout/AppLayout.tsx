@@ -2,6 +2,7 @@ import { Outlet } from "react-router-dom";
 import { ShieldAlert } from "lucide-react";
 import { BottomNav } from "./BottomNav";
 import { CollectionInviteBanner } from "@/components/CollectionInviteBanner";
+import { ScrollToTop } from "@/components/ScrollToTop";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 
@@ -34,9 +35,10 @@ export function AppLayout() {
   const hasStatusBanner = !!profile?.account_status && profile.account_status !== "active";
 
   return (
-    <div className="relative min-h-screen bg-background">
+    <div className="relative bg-background" style={{ height: '100dvh', overflow: 'hidden', paddingTop: 'env(safe-area-inset-top)' }}>
       <AccountStatusBanner />
       <main className={cn("page-content", hasStatusBanner && "pt-10")}>
+        <ScrollToTop />
         <Outlet />
       </main>
       <BottomNav />

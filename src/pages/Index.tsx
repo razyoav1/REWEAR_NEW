@@ -1,7 +1,7 @@
 import { useState, useCallback, useRef, useEffect, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
-import { SlidersHorizontal, Compass, DollarSign, MapPin, Clock, Settings, RotateCcw, Search } from "lucide-react";
+import { SlidersHorizontal, Compass, DollarSign, MapPin, Clock, Settings, RotateCcw, Search, Heart } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -63,6 +63,7 @@ export default function Index() {
   const [seenIds, setSeenIds] = useState<string[]>([]);
   const [interactedIdsLoading, setInteractedIdsLoading] = useState(true);
   const [listingToSave, setListingToSave] = useState<Listing | null>(null);
+  const [feedReady, setFeedReady] = useState(false);
 
   const { blockedUsers, isLoading: blocksLoading } = useBlocks();
   const blockedSellerIds = blockedUsers.map(u => u.id);
@@ -97,6 +98,16 @@ export default function Index() {
     userLat: profile?.location_lat,
     userLng: profile?.location_lng,
   });
+
+  useEffect(() => {
+    if (!isLoading && !interactedIdsLoading && !blocksLoading) {
+      // Small delay to let React settle all state updates
+      const t = setTimeout(() => setFeedReady(true), 100);
+      return () => clearTimeout(t);
+    } else {
+      setFeedReady(false);
+    }
+  }, [isLoading, interactedIdsLoading, blocksLoading]);
 
   // Use a Set for O(1) lookups — seenIds array can grow large
   const seenSet = useMemo(() => new Set(seenIds), [seenIds]);
@@ -223,8 +234,8 @@ export default function Index() {
   }, [history, user?.id]);
 
   return (
-    <div className="min-h-screen bg-background flex flex-col pb-24">
-      <div className="flex items-center justify-between px-5 pt-14 pb-3">
+    <div className="discover-page">
+      <div className="flex items-center justify-between px-5 pt-4 pb-3">
         <div>
           <h1 className="text-2xl font-bold tracking-tight">
             RE<span className="gradient-text">-WEAR</span>
@@ -234,6 +245,9 @@ export default function Index() {
         <div className="flex items-center gap-2">
           <Button variant="outline" size="icon" onClick={() => navigate("/search")}>
             <Search className="w-4 h-4" />
+          </Button>
+          <Button variant="outline" size="icon" onClick={() => navigate("/wishlist")}>
+            <Heart className="w-4 h-4" />
           </Button>
           <Button variant={showFilters ? "default" : "outline"} size="icon" onClick={() => setShowFilters(s => !s)}>
             <SlidersHorizontal className="w-4 h-4" />
@@ -291,9 +305,9 @@ export default function Index() {
         })}
       </div>
 
-      <div className="flex-1 flex flex-col px-4 pb-[88px] gap-4" style={{ minHeight: 0 }}>
-        <div className="relative flex-1" style={{ minHeight: "55vh" }}>
-          {isLoading || interactedIdsLoading ? (
+      <div className="flex-1 flex flex-col px-4 gap-3 pb-3" style={{ minHeight: 0 }}>
+        <div className="relative" style={{ flex: '1 1 0', minHeight: '200px' }}>
+          {!feedReady ? (
             <Skeleton className="absolute inset-0 rounded-3xl" />
           ) : current ? (
             <AnimatePresence>
@@ -321,7 +335,7 @@ export default function Index() {
                 <p className="text-muted-foreground text-sm">{t.noMoreItems}</p>
               </div>
               <div className="flex gap-3 flex-wrap justify-center">
-                <Button onClick={() => { setDoneIds(new Set()); refetch(); }}>{t.refreshFeed}</Button>
+                <Button onClick={() => { setDoneIds(new Set()); setSeenIds([]); refetch(); }}>{t.refreshFeed}</Button>
                 <Button variant="outline" onClick={() => navigate("/settings")} className="flex items-center gap-2">
                   <Settings className="w-4 h-4" /> {t.increaseRadius}
                 </Button>
@@ -335,7 +349,7 @@ export default function Index() {
           )}
         </div>
 
-        {!isLoading && !interactedIdsLoading && current && (
+        {feedReady && current && (
           <ActionButtons onSkip={handleSkip} onSave={handleSave} onChat={handleChat}
             onUndo={handleUndo} canUndo={history.length > 0} />
         )}

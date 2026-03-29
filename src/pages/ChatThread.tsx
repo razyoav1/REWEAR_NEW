@@ -139,6 +139,13 @@ export default function ChatThread() {
 
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
+  // Scroll to bottom when keyboard opens (iOS resize: 'body' fires a resize event)
+  useEffect(() => {
+    function onResize() { messagesEndRef.current?.scrollIntoView({ behavior: "instant" }); }
+    window.addEventListener("resize", onResize);
+    return () => window.removeEventListener("resize", onResize);
+  }, []);
+
   function mapMessage(row: Record<string, unknown>): Message {
     return { id: row.id as string, senderId: row.sender_id as string, body: row.body as string, createdAt: new Date(row.created_at as string) };
   }
@@ -213,10 +220,10 @@ export default function ChatThread() {
   }
 
   return (
-    <div className="flex flex-col h-screen bg-background">
+    <div className="flex flex-col h-full bg-background" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
       {/* Header */}
       <div className="shrink-0 border-b border-border bg-background/95 backdrop-blur-sm">
-        <div className="flex items-center gap-3 px-4 pt-12 pb-3">
+        <div className="flex items-center gap-3 px-4 pt-3 pb-3">
           <button onClick={() => navigate("/messages")} className="w-9 h-9 rounded-full bg-muted flex items-center justify-center shrink-0">
             {isRTL ? <ArrowRight className="w-5 h-5" /> : <ArrowLeft className="w-5 h-5" />}
           </button>

@@ -86,16 +86,23 @@
     box-sizing: border-box;
   }
 
+  html, body {
+    overflow: hidden;
+    height: 100%;
+  }
+
   body {
     @apply bg-background text-foreground;
     font-family: "Space Grotesk", system-ui, sans-serif;
     font-feature-settings: "rlig" 1, "calt" 1;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
-    /* Mobile safe areas */
-    padding-top: env(safe-area-inset-top);
-    padding-bottom: env(safe-area-inset-bottom);
     overflow-x: hidden;
+  }
+
+  #root {
+    overflow: hidden;
+    height: 100%;
   }
 
   /* Hide scrollbar but keep functionality */
@@ -155,7 +162,17 @@
 
   /* Mobile bottom padding for nav */
   .page-content {
+    overflow-y: auto;
+    height: 100%;
+    /* nav bar height (4rem) + home indicator safe area */
     padding-bottom: calc(4rem + env(safe-area-inset-bottom));
+  }
+
+  .discover-page {
+    height: 100%;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
   }
 
   /* Listing card photo overlay gradient */
@@ -175,6 +192,13 @@
 
   .nav-inactive {
     @apply text-muted-foreground;
+  }
+
+  /* Prevent iOS auto-zoom on input focus (requires font-size >= 16px) */
+  input,
+  textarea,
+  select {
+    font-size: 16px;
   }
 
   /* Input focus ring override */

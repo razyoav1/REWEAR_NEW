@@ -1,5 +1,6 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
+import { BrowserRouter, MemoryRouter, Routes, Route, Navigate } from "react-router-dom";
+import { Capacitor } from "@capacitor/core";
 import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
@@ -186,11 +187,14 @@ function AppRoutes() {
   );
 }
 
+// Use MemoryRouter on native (no URL bar), BrowserRouter on web
+const Router = Capacitor.isNativePlatform() ? MemoryRouter : BrowserRouter;
+
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <BrowserRouter>
+        <Router>
           <AuthProvider>
             <LanguageProvider>
               <NotificationsProvider>
@@ -199,7 +203,7 @@ export default function App() {
               </NotificationsProvider>
             </LanguageProvider>
           </AuthProvider>
-        </BrowserRouter>
+        </Router>
       </ThemeProvider>
     </QueryClientProvider>
   );

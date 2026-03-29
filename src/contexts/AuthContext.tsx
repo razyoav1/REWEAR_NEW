@@ -2,6 +2,9 @@ import { createContext, useContext, useEffect, useState } from "react";
 import type { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import type { UserProfile } from "@/types";
+import { Capacitor } from "@capacitor/core";
+import { App as CapApp } from "@capacitor/app";
+import { Browser } from "@capacitor/browser";
 
 interface AuthContextValue {
   user: User | null;
@@ -43,7 +46,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }
 
   useEffect(() => {
+    const timeout = setTimeout(() => {
+      // Safety net: if getSession hangs (e.g. no network on cold start), unblock the UI
+      setLoading(false);
+      setProfileFetched(true);
+    }, 8000);
+
     supabase.auth.getSession().then(async ({ data: { session } }) => {
+      clearTimeout(timeout);
       setSession(session);
       setUser(session?.user ?? null);
       if (session?.user) {
@@ -72,7 +82,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     );
 
-    return () => subscription.unsubscribe();
+    // Handle Google OAuth deep-link callback on iOS (com.rewear.yoavraz://login-callback?code=...)
+    let removeUrlListener: (() => void) | undefined;
+    if (Capacitor.isNativePlatform()) {
+      CapApp.addListener("appUrlOpen", async ({ url }) => {
+        if (!url.startsWith("com.rewear.yoavraz://login-callback")) return;
+        // Close the in-app browser
+        await Browser.close().catch(() => {});
+
+        // Use string operations only — new URL() throws for custom dotted schemes in WebKit
+
+        // PKCE flow: ?code= in query string
+        const codeMatch = url.match(/[?&]code=([^&#]+)/);
+        if (codeMatch?.[1]) {
+          const { error } = await supabase.auth.exchangeCodeForSession(decodeURIComponent(codeMatch[1]));
+          if (error) import.meta.env.DEV && console.error("exchangeCodeForSession failed:", error.message);
+          return;
+        }
+
+        // Implicit flow: #access_token= in hash
+        const hashIndex = url.indexOf("#");
+        if (hashIndex !== -1) {
+          const params = new URLSearchParams(url.slice(hashIndex + 1));
+          const access_token = params.get("access_token");
+          const refresh_token = params.get("refresh_token") ?? "";
+          if (access_token) {
+            const { error } = await supabase.auth.setSession({ access_token, refresh_token });
+            if (error) import.meta.env.DEV && console.error("setSession failed:", error.message);
+          }
+        }
+      }).then(handle => { removeUrlListener = () => handle.remove(); });
+    }
+
+    return () => { clearTimeout(timeout); subscription.unsubscribe(); removeUrlListener?.(); };
   }, []);
 
   async function signOut() {

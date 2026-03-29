@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
+import { Capacitor } from "@capacitor/core";
+import { Browser } from "@capacitor/browser";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,10 +55,20 @@ export default function Auth() {
   }
 
   async function handleGoogle() {
-    await supabase.auth.signInWithOAuth({
+    const redirectTo = Capacitor.isNativePlatform()
+      ? "com.rewear.yoavraz://login-callback"
+      : `${window.location.origin}/`;
+
+    const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo: `${window.location.origin}/` },
+      options: { redirectTo, skipBrowserRedirect: Capacitor.isNativePlatform() },
     });
+
+    if (error) { toast.error(error.message); return; }
+
+    if (Capacitor.isNativePlatform() && data.url) {
+      await Browser.open({ url: data.url });
+    }
   }
 
   return (
