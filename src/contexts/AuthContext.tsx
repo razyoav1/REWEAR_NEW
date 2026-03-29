@@ -117,42 +117,61 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         // Use string operations only — new URL() throws for custom dotted schemes in WebKit
 
-        // PKCE flow: ?code= in query string
+        // PKCE flow: ?code= in query string (primary path with flowType: 'pkce')
         const codeMatch = url.match(/[?&]code=([^&#]+)/);
         if (codeMatch?.[1]) {
+          console.log("[OAuth] PKCE flow, exchanging code...");
           const { data, error } = await supabase.auth.exchangeCodeForSession(decodeURIComponent(codeMatch[1]));
           if (error) {
-            console.error("exchangeCodeForSession failed:", error.message);
+            console.error("[OAuth] exchangeCodeForSession failed:", error.message);
             return;
           }
-          // Manually update state — onAuthStateChange may lag on native
+          console.log("[OAuth] exchange success, user:", data.user?.id);
           if (data.user) {
             setUser(data.user);
             setSession(data.session);
             setProfileFetched(false);
             await fetchProfile(data.user.id);
+            console.log("[OAuth] done.");
           }
           return;
         }
 
-        // Implicit flow: #access_token= in hash
+        // Fallback: implicit flow (#access_token in hash) — decode JWT locally, no setSession call
         const hashIndex = url.indexOf("#");
         if (hashIndex !== -1) {
+          console.log("[OAuth] implicit fallback flow...");
           const params = new URLSearchParams(url.slice(hashIndex + 1));
           const access_token = params.get("access_token");
           const refresh_token = params.get("refresh_token") ?? "";
           if (access_token) {
-            const { data, error } = await supabase.auth.setSession({ access_token, refresh_token });
-            if (error) {
-              console.error("setSession failed:", error.message);
-              return;
-            }
-            // Manually update state — onAuthStateChange may lag on native
-            if (data.user) {
-              setUser(data.user);
-              setSession(data.session);
-              setProfileFetched(false);
-              await fetchProfile(data.user.id);
+            try {
+              // Decode JWT payload without any network call
+              const payload = JSON.parse(atob(access_token.split(".")[1].replace(/-/g, "+").replace(/_/g, "/")));
+              const nowSecs = Math.floor(Date.now() / 1000);
+              // Write session directly to localStorage — avoids setSession lock deadlock
+              localStorage.setItem("sb-jddcaaasineiikfzhjel-auth-token", JSON.stringify({
+                access_token, refresh_token, token_type: "bearer",
+                expires_in: Math.max(0, (payload.exp || 0) - nowSecs),
+                expires_at: payload.exp || nowSecs + 3600,
+                user: {
+                  id: payload.sub, email: payload.email, role: payload.role ?? "authenticated",
+                  aud: payload.aud ?? "authenticated", created_at: payload.created_at ?? "",
+                  user_metadata: payload.user_metadata ?? {}, app_metadata: payload.app_metadata ?? {},
+                },
+              }));
+              // Now load session from localStorage — no network call needed
+              const { data } = await supabase.auth.getSession();
+              console.log("[OAuth] implicit fallback session loaded:", data.session?.user?.id);
+              if (data.session?.user) {
+                setUser(data.session.user);
+                setSession(data.session);
+                setProfileFetched(false);
+                await fetchProfile(data.session.user.id);
+                console.log("[OAuth] done.");
+              }
+            } catch (e) {
+              console.error("[OAuth] implicit fallback failed:", e);
             }
           }
         }
