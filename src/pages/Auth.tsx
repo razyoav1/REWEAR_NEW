@@ -62,7 +62,7 @@ export default function Auth() {
 
     const { data, error } = await supabase.auth.signInWithOAuth({
       provider: "google",
-      options: { redirectTo, skipBrowserRedirect: Capacitor.isNativePlatform() },
+      options: { redirectTo, skipBrowserRedirect: Capacitor.isNativePlatform(), queryParams: { prompt: 'select_account' } },
     });
 
     if (error) { toast.error(error.message); return; }
