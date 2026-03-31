@@ -6,6 +6,19 @@ import { ScrollToTop } from "@/components/ScrollToTop";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
 
+// Shared wrapper: centers app in a 480px column on desktop, full-width on mobile.
+// Used by AppLayout AND full-screen pages (ListingDetail, ChatThread, CreateListing)
+// so the whole app looks consistent on web without affecting iOS (phones < 480px).
+export function MobileFrame({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="relative bg-background w-full min-h-screen flex justify-center">
+      <div className="relative bg-background w-full" style={{ maxWidth: '480px' }}>
+        {children}
+      </div>
+    </div>
+  );
+}
+
 function AccountStatusBanner() {
   const { profile } = useAuth();
   const status = profile?.account_status;
@@ -35,8 +48,8 @@ export function AppLayout() {
   const hasStatusBanner = !!profile?.account_status && profile.account_status !== "active";
 
   return (
-    <div className="relative bg-background w-full min-h-screen flex justify-center">
-      <div className="relative bg-background w-full" style={{ maxWidth: '480px', height: '100dvh', overflow: 'hidden', paddingTop: 'env(safe-area-inset-top)' }}>
+    <MobileFrame>
+      <div style={{ height: '100dvh', overflow: 'hidden', paddingTop: 'env(safe-area-inset-top)' }}>
         <AccountStatusBanner />
         <main className={cn("page-content", hasStatusBanner && "pt-10")}>
           <ScrollToTop />
@@ -45,6 +58,6 @@ export function AppLayout() {
         <BottomNav />
         <CollectionInviteBanner />
       </div>
-    </div>
+    </MobileFrame>
   );
 }

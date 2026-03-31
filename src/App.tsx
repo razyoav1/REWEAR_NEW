@@ -5,7 +5,7 @@ import { AuthProvider, useAuth } from "@/contexts/AuthContext";
 import { LanguageProvider } from "@/contexts/LanguageContext";
 import { ThemeProvider } from "@/contexts/ThemeContext";
 import { NotificationsProvider } from "@/contexts/NotificationsContext";
-import { AppLayout } from "@/components/layout/AppLayout";
+import { AppLayout, MobileFrame } from "@/components/layout/AppLayout";
 import { Toaster } from "@/components/ui/sonner";
 import { useAdmin } from "@/hooks/useAdmin";
 import { ShieldOff } from "lucide-react";
@@ -179,9 +179,9 @@ function AppRoutes() {
       <Route path="/l/:id" element={<ListingShare />} />
 
       {/* Full-screen flows — protected but no bottom nav */}
-      <Route path="/listings/:id" element={<ProtectedRoute><ListingDetail /></ProtectedRoute>} />
-      <Route path="/create" element={<ProtectedRoute><CreateListing /></ProtectedRoute>} />
-      <Route path="/messages/:id" element={<ProtectedRoute><ChatThread /></ProtectedRoute>} />
+      <Route path="/listings/:id" element={<ProtectedRoute><MobileFrame><ListingDetail /></MobileFrame></ProtectedRoute>} />
+      <Route path="/create" element={<ProtectedRoute><MobileFrame><CreateListing /></MobileFrame></ProtectedRoute>} />
+      <Route path="/messages/:id" element={<ProtectedRoute><MobileFrame><ChatThread /></MobileFrame></ProtectedRoute>} />
 
       {/* Admin */}
       <Route path="/admin" element={<AdminRoute><AdminDashboard /></AdminRoute>} />

@@ -385,7 +385,7 @@ export default function ListingDetail() {
       ) : (
         <>
           {/* Photo carousel */}
-          <div className="relative bg-card" style={{ aspectRatio: "4/5", maxHeight: "80vh" }}>
+          <div className="relative bg-card" style={{ aspectRatio: "4/5" }}>
             {listing.photos.length > 0 ? (
               <img
                 src={listing.photos[photoIndex]}
