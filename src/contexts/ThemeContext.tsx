@@ -11,7 +11,8 @@ const ThemeContext = createContext<ThemeContextValue>({ theme: "light", setTheme
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
   const [theme, setThemeState] = useState<Theme>(() => {
-    const saved = (localStorage.getItem("rewear_theme") as Theme) ?? "light";
+    // Always default to dark — this is a dark-first app
+    const saved = (localStorage.getItem("rewear_theme") as Theme) ?? "dark";
     // Apply immediately to avoid flash of wrong theme
     document.documentElement.classList.toggle("dark", saved === "dark");
     document.documentElement.style.colorScheme = saved;
