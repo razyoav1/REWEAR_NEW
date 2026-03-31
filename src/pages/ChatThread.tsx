@@ -227,7 +227,7 @@ export default function ChatThread() {
   }
 
   return (
-    <div className="flex flex-col h-full bg-background" style={{ paddingTop: 'env(safe-area-inset-top)' }}>
+    <div className="flex flex-col bg-background" style={{ position: 'fixed', inset: 0, maxWidth: '480px', margin: '0 auto', paddingTop: 'env(safe-area-inset-top)' }}>
       {/* Header */}
       <div className="shrink-0 border-b border-border bg-background/95 backdrop-blur-sm">
         <div className="flex items-center gap-3 px-4 pt-3 pb-3">
