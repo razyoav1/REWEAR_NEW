@@ -90,7 +90,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      async (event, session) => {
+        // Don't let INITIAL_SESSION override the loading state — getSession() owns that.
+        // Only handle subsequent real events (sign-in, sign-out, token refresh, etc.)
+        // This prevents the race where INITIAL_SESSION fires with null before token
+        // refresh completes, causing a false redirect to the auth page on web refresh.
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
@@ -103,7 +107,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setProfile(null);
           setProfileFetched(true);
         }
-        setLoading(false);
+        // Only clear the loading state for post-init events, not INITIAL_SESSION.
+        // getSession().then() handles the initial load; this handles everything after.
+        if (event !== "INITIAL_SESSION") {
+          setLoading(false);
+        }
       }
     );
 
