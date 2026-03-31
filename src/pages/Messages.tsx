@@ -134,7 +134,7 @@ export default function Messages() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="px-5 pt-14 pb-4 border-b border-border">
+      <div className="px-5 pt-14 pb-4 border-b border-border sticky top-0 bg-background z-10">
         <h1 className="text-2xl font-bold tracking-tight">{t.inbox}</h1>
       </div>
 
