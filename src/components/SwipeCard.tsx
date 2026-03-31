@@ -75,7 +75,7 @@ export function SwipeCard({ listing, userCurrency, onSwipeLeft, onSwipeRight, on
       dragConstraints={{ left: 0, right: 0 }}
       dragElastic={0.8}
       onDragStart={() => { hasDragged.current = false; }}
-      onDrag={(_, info) => { if (Math.abs(info.offset.x) > 8 || Math.abs(info.offset.y) > 8) hasDragged.current = true; }}
+      onDrag={(_, info) => { if (Math.abs(info.offset.x) > 20) hasDragged.current = true; }}
       onDragEnd={handleDragEnd}
       animate={exitAnim}
       transition={{ type: "spring", stiffness: 500, damping: 35 }}

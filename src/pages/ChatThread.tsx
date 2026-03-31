@@ -140,10 +140,17 @@ export default function ChatThread() {
   useEffect(() => { messagesEndRef.current?.scrollIntoView({ behavior: "smooth" }); }, [messages]);
 
   // Scroll to bottom when keyboard opens (iOS resize: 'body' fires a resize event)
+  // Also reset window scroll to 0 on unmount so navigating back doesn't leave the page scrolled
   useEffect(() => {
     function onResize() { messagesEndRef.current?.scrollIntoView({ behavior: "instant" }); }
     window.addEventListener("resize", onResize);
-    return () => window.removeEventListener("resize", onResize);
+    return () => {
+      window.removeEventListener("resize", onResize);
+      // Reset viewport scroll so previous page isn't pushed up after keyboard was open
+      window.scrollTo(0, 0);
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    };
   }, []);
 
   function mapMessage(row: Record<string, unknown>): Message {
