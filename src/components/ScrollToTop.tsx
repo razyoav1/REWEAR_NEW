@@ -1,16 +1,15 @@
-import { useEffect } from "react";
+import { useLayoutEffect } from "react";
 import { useLocation } from "react-router-dom";
 
 export function ScrollToTop() {
   const { pathname } = useLocation();
-  useEffect(() => {
-    // Reset inner page scroll
-    const el = document.querySelector(".page-content");
-    if (el) el.scrollTop = 0;
-    // Reset window/body scroll — mobile Safari pushes these when keyboard opens
-    window.scrollTo(0, 0);
+  // useLayoutEffect fires before paint — resets scroll before user sees new page
+  useLayoutEffect(() => {
+    window.scrollTo({ top: 0, left: 0, behavior: "instant" as ScrollBehavior });
     document.documentElement.scrollTop = 0;
     document.body.scrollTop = 0;
+    const el = document.querySelector(".page-content");
+    if (el) el.scrollTop = 0;
   }, [pathname]);
   return null;
 }

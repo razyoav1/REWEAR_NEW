@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Outlet } from "react-router-dom";
 import { ShieldAlert } from "lucide-react";
 import { BottomNav } from "./BottomNav";
@@ -5,6 +6,25 @@ import { CollectionInviteBanner } from "@/components/CollectionInviteBanner";
 import { ScrollToTop } from "@/components/ScrollToTop";
 import { useAuth } from "@/contexts/AuthContext";
 import { cn } from "@/lib/utils";
+
+// Resets viewport scroll when keyboard dismisses on mobile Safari
+function useIOSKeyboardScrollFix() {
+  useEffect(() => {
+    const vv = window.visualViewport;
+    if (!vv) return;
+    let prevHeight = vv.height;
+    const handleResize = () => {
+      const currentHeight = vv.height;
+      const keyboardClosed = currentHeight > prevHeight;
+      prevHeight = currentHeight;
+      if (keyboardClosed) {
+        requestAnimationFrame(() => window.scrollTo({ top: 0, left: 0, behavior: "instant" as ScrollBehavior }));
+      }
+    };
+    vv.addEventListener("resize", handleResize);
+    return () => vv.removeEventListener("resize", handleResize);
+  }, []);
+}
 
 // Shared wrapper: centers app in a 480px column on desktop, full-width on mobile.
 // Used by AppLayout AND full-screen pages (ListingDetail, ChatThread, CreateListing)
@@ -46,10 +66,11 @@ function AccountStatusBanner() {
 export function AppLayout() {
   const { profile } = useAuth();
   const hasStatusBanner = !!profile?.account_status && profile.account_status !== "active";
+  useIOSKeyboardScrollFix();
 
   return (
     <MobileFrame>
-      <div style={{ height: '100dvh', overflow: 'hidden', paddingTop: 'env(safe-area-inset-top)' }}>
+      <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, height: '100dvh', overflow: 'hidden', paddingTop: 'env(safe-area-inset-top)' }}>
         <AccountStatusBanner />
         <main className={cn("page-content", hasStatusBanner && "pt-10")}>
           <ScrollToTop />
