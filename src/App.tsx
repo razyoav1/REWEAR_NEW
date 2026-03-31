@@ -38,6 +38,7 @@ import Activity from "@/pages/Activity";
 import NotFound from "@/pages/NotFound";
 import TermsOfService from "@/pages/TermsOfService";
 import PrivacyPolicy from "@/pages/PrivacyPolicy";
+import ResetPassword from "@/pages/ResetPassword";
 
 // Admin pages
 import AdminDashboard from "@/pages/admin/AdminDashboard";
@@ -136,6 +137,7 @@ function AppRoutes() {
     <Routes>
       {/* Public — no auth required */}
       <Route path="/auth" element={<AuthRoute><Auth /></AuthRoute>} />
+      <Route path="/reset-password" element={<MobileFrame><ResetPassword /></MobileFrame>} />
       <Route path="/terms" element={<TermsOfService />} />
       <Route path="/privacy" element={<PrivacyPolicy />} />
 

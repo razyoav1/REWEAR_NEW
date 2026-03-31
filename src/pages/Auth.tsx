@@ -13,7 +13,7 @@ import { Link } from "react-router-dom";
 import rewearLogo from "@/assets/rewear_logo_circle_transparent.png";
 import { useLanguage } from "@/contexts/LanguageContext";
 
-type Mode = "login" | "signup";
+type Mode = "login" | "signup" | "forgot";
 
 export default function Auth() {
   const navigate = useNavigate();
@@ -28,6 +28,17 @@ export default function Auth() {
     e.preventDefault();
     setLoading(true);
     try {
+      if (mode === "forgot") {
+        const redirectTo = Capacitor.isNativePlatform()
+          ? "com.rewear.yoavraz://login-callback?type=recovery"
+          : `${window.location.origin}/reset-password`;
+        const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo });
+        if (error) throw error;
+        toast.success("Check your email for the reset link!");
+        setMode("login");
+        setLoading(false);
+        return;
+      }
       if (mode === "signup" && password.length < 6) {
         toast.error("Password must be at least 6 characters");
         setLoading(false);
@@ -98,22 +109,31 @@ export default function Auth() {
           transition={{ delay: 0.1 }}
           className="w-full max-w-sm"
         >
-          {/* Mode toggle */}
-          <div className="flex rounded-xl bg-muted p-1 mb-6">
-            {(["login", "signup"] as Mode[]).map((m) => (
-              <button
-                key={m}
-                onClick={() => setMode(m)}
-                className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all duration-200 capitalize ${
-                  mode === m
-                    ? "bg-card text-foreground shadow-card"
-                    : "text-muted-foreground hover:text-foreground"
-                }`}
-              >
-                {m === "login" ? t.logIn : t.signUp}
-              </button>
-            ))}
-          </div>
+          {/* Mode toggle — only show for login/signup */}
+          {mode !== "forgot" && (
+            <div className="flex rounded-xl bg-muted p-1 mb-6">
+              {(["login", "signup"] as const).map((m) => (
+                <button
+                  key={m}
+                  onClick={() => setMode(m)}
+                  className={`flex-1 py-2 text-sm font-semibold rounded-lg transition-all duration-200 capitalize ${
+                    mode === m
+                      ? "bg-card text-foreground shadow-card"
+                      : "text-muted-foreground hover:text-foreground"
+                  }`}
+                >
+                  {m === "login" ? t.logIn : t.signUp}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {mode === "forgot" && (
+            <div className="mb-6">
+              <h2 className="text-xl font-black mb-1">Forgot password?</h2>
+              <p className="text-sm text-muted-foreground">Enter your email and we'll send you a reset link.</p>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
@@ -128,34 +148,57 @@ export default function Auth() {
               />
             </div>
 
-            <div className="flex flex-col gap-1.5">
-              <Label htmlFor="password">{t.password}</Label>
-              <div className="relative">
-                <Input
-                  id="password"
-                  type={showPassword ? "text" : "password"}
-                  placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
-                  required
-                  className="pr-11"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
-                >
-                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
+            {mode !== "forgot" && (
+              <div className="flex flex-col gap-1.5">
+                <div className="flex items-center justify-between">
+                  <Label htmlFor="password">{t.password}</Label>
+                  {mode === "login" && (
+                    <button
+                      type="button"
+                      onClick={() => setMode("forgot")}
+                      className="text-xs text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                      Forgot password?
+                    </button>
+                  )}
+                </div>
+                <div className="relative">
+                  <Input
+                    id="password"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                    required
+                    className="pr-11"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                </div>
+                {mode === "signup" && password.length > 0 && password.length < 6 && (
+                  <p className="text-xs text-destructive mt-1">At least 6 characters required</p>
+                )}
               </div>
-              {mode === "signup" && password.length > 0 && password.length < 6 && (
-                <p className="text-xs text-destructive mt-1">At least 6 characters required</p>
-              )}
-            </div>
+            )}
 
             <Button type="submit" className="w-full mt-2" size="lg" disabled={loading}>
-              {loading ? t.loading : mode === "login" ? t.logIn : t.createAccount}
+              {loading ? t.loading : mode === "login" ? t.logIn : mode === "signup" ? t.createAccount : "Send reset link"}
             </Button>
+
+            {mode === "forgot" && (
+              <button
+                type="button"
+                onClick={() => setMode("login")}
+                className="text-sm text-center text-muted-foreground hover:text-foreground transition-colors"
+              >
+                Back to login
+              </button>
+            )}
           </form>
 
           <div className="flex items-center gap-3 my-5">
