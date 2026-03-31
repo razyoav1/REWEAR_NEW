@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from "react";
+import { createContext, useContext, useEffect, useRef, useState } from "react";
 import type { User, Session } from "@supabase/supabase-js";
 import { supabase } from "@/integrations/supabase/client";
 import type { UserProfile } from "@/types";
@@ -25,6 +25,11 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   // Tracks whether we've completed at least one profile fetch attempt
   const [profileFetched, setProfileFetched] = useState(false);
+  // True only after getSession() has fully resolved — prevents onAuthStateChange
+  // events (SIGNED_OUT, TOKEN_REFRESHED, etc.) from triggering redirects before
+  // the initial session check is complete (the race-condition root cause of the
+  // "redirected to get started on refresh" bug).
+  const initializedRef = useRef(false);
 
   async function fetchProfile(userId: string) {
     const { data, error } = await supabase
@@ -73,6 +78,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     const timeout = setTimeout(() => {
       // Safety net: if getSession hangs (e.g. no network on cold start), unblock the UI
+      initializedRef.current = true;
       setLoading(false);
       setProfileFetched(true);
     }, 8000);
@@ -86,15 +92,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       } else {
         setProfileFetched(true);
       }
+      // Mark as initialized BEFORE clearing loading so route guards see both together
+      initializedRef.current = true;
       setLoading(false);
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
-        // Don't let INITIAL_SESSION override the loading state — getSession() owns that.
-        // Only handle subsequent real events (sign-in, sign-out, token refresh, etc.)
-        // This prevents the race where INITIAL_SESSION fires with null before token
-        // refresh completes, causing a false redirect to the auth page on web refresh.
+      async (_event, session) => {
+        // Guard: don't act on auth state changes until getSession() has fully
+        // resolved. This prevents INITIAL_SESSION / SIGNED_OUT / TOKEN_REFRESHED
+        // events from firing before we've confirmed the session from storage,
+        // which was causing the "redirected to get started on refresh" bug.
+        if (!initializedRef.current) return;
+
         setSession(session);
         setUser(session?.user ?? null);
         if (session?.user) {
@@ -107,11 +117,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           setProfile(null);
           setProfileFetched(true);
         }
-        // Only clear the loading state for post-init events, not INITIAL_SESSION.
-        // getSession().then() handles the initial load; this handles everything after.
-        if (event !== "INITIAL_SESSION") {
-          setLoading(false);
-        }
+        setLoading(false);
       }
     );
 
