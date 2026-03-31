@@ -384,8 +384,9 @@ export default function ListingDetail() {
         </div>
       ) : (
         <>
-          {/* Photo carousel */}
-          <div className="relative bg-card" style={{ aspectRatio: "4/5" }}>
+          {/* Photo carousel — clamp keeps it proportional on iOS (~55vh) and
+              prevents it from eating the whole desktop viewport (max 500px) */}
+          <div className="relative bg-card w-full" style={{ height: 'clamp(300px, 55vh, 500px)' }}>
             {listing.photos.length > 0 ? (
               <img
                 src={listing.photos[photoIndex]}
