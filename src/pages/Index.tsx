@@ -115,6 +115,10 @@ export default function Index() {
   const current = listings[0];
   const next = listings[1];
 
+  // Only show "seen it all" if feed is ready AND we're confident there truly are
+  // no unseen listings — not just a loading/timing flicker.
+  const showEmpty = feedReady && !current && !isLoading && !interactedIdsLoading;
+
   // Record impression
   const lastSeenRef = useRef<string | null>(null);
   useEffect(() => {
@@ -310,7 +314,7 @@ export default function Index() {
 
       <div className="flex-1 flex flex-col px-4 gap-3 pb-3" style={{ minHeight: 0 }}>
         <div className="relative" style={{ flex: '1 1 0', minHeight: '200px' }}>
-          {!feedReady ? (
+          {!feedReady || (feedReady && !current && !showEmpty) ? (
             <Skeleton className="absolute inset-0 rounded-3xl" />
           ) : current ? (
             <AnimatePresence>

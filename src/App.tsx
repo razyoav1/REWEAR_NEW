@@ -144,7 +144,7 @@ function AppRoutes() {
   return (
     <Routes>
       {/* Public — no auth required */}
-      <Route path="/auth" element={<AuthRoute><Auth /></AuthRoute>} />
+      <Route path="/auth" element={<AuthRoute><MobileFrame><Auth /></MobileFrame></AuthRoute>} />
       <Route path="/reset-password" element={<MobileFrame><ResetPassword /></MobileFrame>} />
       <Route path="/terms" element={<TermsOfService />} />
       <Route path="/privacy" element={<PrivacyPolicy />} />

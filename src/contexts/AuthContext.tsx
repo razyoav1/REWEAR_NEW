@@ -103,12 +103,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (_event, session) => {
+      async (event, session) => {
         // Guard: don't act on auth state changes until getSession() has fully
         // resolved. This prevents INITIAL_SESSION / SIGNED_OUT / TOKEN_REFRESHED
         // events from firing before we've confirmed the session from storage,
         // which was causing the "redirected to get started on refresh" bug.
         if (!initializedRef.current) return;
+
+        // TOKEN_REFRESHED: silently update session — no spinner, no profile refetch.
+        // This fires every ~1hr and when the user switches back to the app. Without
+        // this guard, it sets profileFetched=false which causes an infinite spinner.
+        if (event === 'TOKEN_REFRESHED') {
+          setSession(session);
+          setUser(session?.user ?? null);
+          return;
+        }
 
         setSession(session);
         setUser(session?.user ?? null);
