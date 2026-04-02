@@ -81,7 +81,16 @@ export default function Settings() {
         toast.success(t.locationUpdated);
         setUpdatingLocation(false);
       },
-      () => { toast.error(t.cantGetLocation); setUpdatingLocation(false); }
+      (err) => {
+        setUpdatingLocation(false);
+        if (err.code === 1) {
+          // Permission denied
+          toast.error("Location permission denied. In Safari: Settings → Safari → [this site] → Location → Allow");
+        } else {
+          toast.error(t.cantGetLocation);
+        }
+      },
+      { timeout: 10000, enableHighAccuracy: false }
     );
   }
 
