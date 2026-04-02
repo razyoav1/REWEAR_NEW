@@ -31,8 +31,8 @@ function useIOSKeyboardScrollFix() {
 // so the whole app looks consistent on web without affecting iOS (phones < 480px).
 export function MobileFrame({ children }: { children: React.ReactNode }) {
   return (
-    <div className="relative bg-background w-full min-h-screen flex justify-center">
-      <div className="relative bg-background w-full" style={{ maxWidth: '480px' }}>
+    <div className="relative bg-background w-full flex justify-center" style={{ height: '100dvh', overflow: 'hidden' }}>
+      <div className="relative bg-background w-full h-full" style={{ maxWidth: '480px' }}>
         {children}
       </div>
     </div>

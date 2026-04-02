@@ -367,7 +367,7 @@ export default function ListingDetail() {
   const isOwnListing = listing?.sellerId === user?.id;
 
   return (
-    <div className="min-h-screen bg-background pb-28">
+    <div className="h-full bg-background pb-28 overflow-y-auto">
       {loading ? (
         <>
           <Skeleton className="w-full aspect-[4/5] rounded-none" />

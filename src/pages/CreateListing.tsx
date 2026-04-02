@@ -462,7 +462,7 @@ export default function CreateListing() {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="h-full bg-background flex flex-col">
       {/* Header */}
       <div className="flex items-center gap-3 px-5 pt-12 pb-4 border-b border-border">
         <button onClick={() => step === 0 ? navigate(-1) : setStep(s => s - 1)}
