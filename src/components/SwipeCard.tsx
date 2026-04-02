@@ -172,7 +172,7 @@ export function SwipeCard({ listing, userCurrency, onSwipeLeft, onSwipeRight, on
                 {/* Activity dot */}
                 <span className={cn(
                   "absolute -bottom-0.5 -right-0.5 w-3 h-3 rounded-full border-2 border-white/70",
-                  listing.seller.lastSeenAt && (Date.now() - new Date(listing.seller.lastSeenAt).getTime()) < 48 * 60 * 60 * 1000
+                  listing.seller.lastSeenAt && (Date.now() - new Date(listing.seller.lastSeenAt).getTime()) < 7 * 24 * 60 * 60 * 1000
                     ? "bg-green-400"
                     : "bg-neutral-400"
                 )} />
