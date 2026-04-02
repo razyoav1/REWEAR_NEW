@@ -80,40 +80,49 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     if (user) await fetchProfile(user.id);
   }
 
+  // Track current user ID so we only refetch profile when the user actually changes,
+  // not on every TOKEN_REFRESHED / SIGNED_IN that fires when switching apps.
+  const currentUserIdRef = useRef<string | null>(null);
+
   useEffect(() => {
+    // Safety net: unblock UI if getSession or fetchProfile hangs (e.g. no network)
     const timeout = setTimeout(() => {
-      // Safety net: if getSession hangs (e.g. no network on cold start), unblock the UI
       initializedRef.current = true;
       setLoading(false);
       setProfileFetched(true);
-    }, 8000);
+    }, 5000);
 
-    supabase.auth.getSession().then(async ({ data: { session } }) => {
-      clearTimeout(timeout);
-      setSession(session);
-      setUser(session?.user ?? null);
-      if (session?.user) {
-        await fetchProfile(session.user.id);
-      } else {
+    supabase.auth.getSession()
+      .then(async ({ data: { session } }) => {
+        clearTimeout(timeout);
+        setSession(session);
+        setUser(session?.user ?? null);
+        if (session?.user) {
+          currentUserIdRef.current = session.user.id;
+          await fetchProfile(session.user.id);
+        } else {
+          setProfileFetched(true);
+        }
+        initializedRef.current = true;
+        setLoading(false);
+      })
+      .catch(() => {
+        // getSession threw (rare — network error before token read) — unblock UI
+        clearTimeout(timeout);
+        initializedRef.current = true;
+        setLoading(false);
         setProfileFetched(true);
-      }
-      // Mark as initialized BEFORE clearing loading so route guards see both together
-      initializedRef.current = true;
-      setLoading(false);
-    });
+      });
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        // Guard: don't act on auth state changes until getSession() has fully
-        // resolved. This prevents INITIAL_SESSION / SIGNED_OUT / TOKEN_REFRESHED
-        // events from firing before we've confirmed the session from storage,
-        // which was causing the "redirected to get started on refresh" bug.
+        // Guard: ignore all events until initial getSession() resolves
         if (!initializedRef.current) return;
 
-        // TOKEN_REFRESHED: silently update session — no spinner, no profile refetch.
-        // This fires every ~1hr and when the user switches back to the app. Without
-        // this guard, it sets profileFetched=false which causes an infinite spinner.
-        if (event === 'TOKEN_REFRESHED') {
+        // For token refresh or re-auth of the SAME user (happens when switching apps),
+        // just silently update the session — never show a spinner or refetch profile.
+        const isSameUser = session?.user?.id && session.user.id === currentUserIdRef.current;
+        if (event === 'TOKEN_REFRESHED' || (event === 'SIGNED_IN' && isSameUser)) {
           setSession(session);
           setUser(session?.user ?? null);
           return;
@@ -123,17 +132,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setUser(session?.user ?? null);
         try {
           if (session?.user) {
-            setProfileFetched(false); // reset so route guards wait for the new profile
-            await fetchProfile(session.user.id);
-            // Update last_seen_at on every sign-in / session restore
-            supabase.from("users").update({ last_seen_at: new Date().toISOString() }).eq("id", session.user.id)
-              .then(({ error }) => { if (error) import.meta.env.DEV && console.error("last_seen_at update failed:", error.message); });
+            const isNewUser = currentUserIdRef.current !== session.user.id;
+            currentUserIdRef.current = session.user.id;
+            if (isNewUser) {
+              setProfileFetched(false);
+              await fetchProfile(session.user.id);
+              supabase.from("users").update({ last_seen_at: new Date().toISOString() }).eq("id", session.user.id)
+                .then(({ error }) => { if (error) import.meta.env.DEV && console.error("last_seen_at update failed:", error.message); });
+            }
           } else {
+            currentUserIdRef.current = null;
             setProfile(null);
             setProfileFetched(true);
           }
         } finally {
-          // Always clear loading — prevents infinite spinner if fetchProfile throws
           setLoading(false);
         }
       }
