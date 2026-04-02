@@ -52,7 +52,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             id: userId,
             name,
             avatar_url,
-            onboarding_completed: true,
+            onboarding_completed: false,
           })
           .select("*")
           .single();

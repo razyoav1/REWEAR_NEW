@@ -92,10 +92,10 @@ function BannedScreen() {
   );
 }
 
-// A user has completed onboarding if the flag is true OR they already have a name set.
-// This prevents false redirects to onboarding after fresh Xcode builds clear localStorage.
+// Only use the onboarding_completed flag — name alone is not sufficient since
+// OAuth users (Google/Apple) always have a name from their account but still need onboarding.
 function hasCompletedOnboarding(profile: ReturnType<typeof useAuth>["profile"]) {
-  return !!(profile?.onboarding_completed || profile?.name);
+  return !!profile?.onboarding_completed;
 }
 
 function AuthRoute({ children }: { children: React.ReactNode }) {
