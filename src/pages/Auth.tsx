@@ -22,6 +22,7 @@ export default function Auth() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
@@ -47,6 +48,13 @@ export default function Auth() {
       if (mode === "login") {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
+        // If "Remember Me" is unchecked, remove persisted session from localStorage
+        // so the user is logged out when the browser is closed/reopened
+        if (!rememberMe) {
+          Object.keys(localStorage)
+            .filter((k) => k.startsWith("sb-"))
+            .forEach((k) => localStorage.removeItem(k));
+        }
         navigate("/");
       } else {
         const { data, error } = await supabase.auth.signUp({ email, password });
@@ -200,6 +208,21 @@ export default function Auth() {
                 {mode === "signup" && password.length > 0 && password.length < 6 && (
                   <p className="text-xs text-destructive mt-1">At least 6 characters required</p>
                 )}
+              </div>
+            )}
+
+            {mode === "login" && (
+              <div className="flex items-center gap-2">
+                <input
+                  id="remember-me"
+                  type="checkbox"
+                  checked={rememberMe}
+                  onChange={(e) => setRememberMe(e.target.checked)}
+                  className="w-4 h-4 rounded accent-primary cursor-pointer"
+                />
+                <label htmlFor="remember-me" className="text-sm text-muted-foreground cursor-pointer select-none">
+                  Remember me
+                </label>
               </div>
             )}
 

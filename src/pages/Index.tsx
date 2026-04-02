@@ -135,8 +135,9 @@ export default function Index() {
   }
 
   const handleSkip = useCallback(() => {
-    if (!current || !user) return;
+    if (!current) return;
     dismiss(current, "skip");
+    if (!user) return; // guests can skip without auth
     supabase.from("listing_interactions").upsert(
       { user_id: user.id, listing_id: current.id, action: "declined" },
       { onConflict: "user_id,listing_id" }
@@ -146,7 +147,8 @@ export default function Index() {
   }, [current, user]);
 
   const handleSave = useCallback(async () => {
-    if (!current || !user) return;
+    if (!current) return;
+    if (!user) { navigate("/auth"); return; }
     dismiss(current, "save");
     supabase.from("listing_interactions").upsert(
       { user_id: user.id, listing_id: current.id, action: "saved" },
@@ -184,7 +186,8 @@ export default function Index() {
   }, [current, user, t]);
 
   const handleChat = useCallback(async () => {
-    if (!current || !user) return;
+    if (!current) return;
+    if (!user) { navigate("/auth"); return; }
     if (current.sellerId === user.id) { toast.error(t.ownListingError); return; }
     dismiss(current, "chat");
     supabase.from("listing_interactions").upsert(

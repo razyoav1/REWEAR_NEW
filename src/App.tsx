@@ -123,6 +123,14 @@ function OnboardingRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
+// Allows guests to browse without login — only blocks banned accounts
+function PublicAppLayout() {
+  const { loading, profile } = useAuth();
+  if (loading) return <Spinner />;
+  if (profile?.account_status === "banned") return <BannedScreen />;
+  return <AppLayout />;
+}
+
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
   const { isAdmin, isLoading: adminLoading } = useAdmin();
@@ -151,26 +159,24 @@ function AppRoutes() {
         }
       />
 
-      {/* Main app with bottom nav */}
-      <Route
-        element={
-          <ProtectedRoute>
-            <AppLayout />
-          </ProtectedRoute>
-        }
-      >
+      {/* Public browse routes — no login required */}
+      <Route element={<PublicAppLayout />}>
         <Route path="/" element={<Index />} />
         <Route path="/search" element={<Search />} />
+        <Route path="/users/:id" element={<SellerProfile />} />
+        <Route path="/help" element={<HelpFAQ />} />
+        <Route path="/recently-seen" element={<RecentlySeen />} />
+      </Route>
+
+      {/* Account routes — login required */}
+      <Route element={<ProtectedRoute><AppLayout /></ProtectedRoute>}>
         <Route path="/wishlist" element={<Wishlist />} />
         <Route path="/messages" element={<Messages />} />
         <Route path="/profile" element={<Profile />} />
-        <Route path="/users/:id" element={<SellerProfile />} />
         <Route path="/settings" element={<Settings />} />
         <Route path="/settings/blocked" element={<BlockedUsers />} />
         <Route path="/settings/reports" element={<ReportHistory />} />
-        <Route path="/recently-seen" element={<RecentlySeen />} />
         <Route path="/saved-searches" element={<SavedSearches />} />
-        <Route path="/help" element={<HelpFAQ />} />
         <Route path="/preferences" element={<Preferences />} />
         <Route path="/my-reviews" element={<MyReviews />} />
         <Route path="/notifications" element={<Notifications />} />
@@ -181,7 +187,7 @@ function AppRoutes() {
       <Route path="/l/:id" element={<ListingShare />} />
 
       {/* Full-screen flows — protected but no bottom nav */}
-      <Route path="/listings/:id" element={<ProtectedRoute><MobileFrame><ListingDetail /></MobileFrame></ProtectedRoute>} />
+      <Route path="/listings/:id" element={<MobileFrame><ListingDetail /></MobileFrame>} />
       <Route path="/create" element={<ProtectedRoute><MobileFrame><CreateListing /></MobileFrame></ProtectedRoute>} />
       <Route path="/messages/:id" element={<ProtectedRoute><MobileFrame><ChatThread /></MobileFrame></ProtectedRoute>} />
 
