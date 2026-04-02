@@ -238,7 +238,7 @@ export default function CreateListing() {
   }
 
   const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/heic", "image/heif"];
-  const MAX_FILE_SIZE_MB = 5;
+  const MAX_FILE_SIZE_MB = 30;
 
   async function addPhotos(files: FileList | null) {
     if (!files) return;
