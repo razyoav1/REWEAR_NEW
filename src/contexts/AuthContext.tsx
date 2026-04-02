@@ -151,6 +151,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
     );
 
+    // Update last_seen_at every 5 minutes while the user is active,
+    // and immediately when the page becomes visible (switching back to the app).
+    function updateLastSeen() {
+      if (!currentUserIdRef.current) return;
+      supabase.from("users").update({ last_seen_at: new Date().toISOString() }).eq("id", currentUserIdRef.current).then(() => {});
+    }
+    const heartbeat = setInterval(updateLastSeen, 5 * 60 * 1000);
+    function onVisible() { if (document.visibilityState === "visible") updateLastSeen(); }
+    document.addEventListener("visibilitychange", onVisible);
+
     // Handle Google OAuth deep-link callback on iOS (com.rewear.yoavraz://login-callback#access_token=...)
     let removeUrlListener: (() => void) | undefined;
     if (Capacitor.isNativePlatform()) {
@@ -254,7 +264,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }).then(handle => { removeUrlListener = () => handle.remove(); });
     }
 
-    return () => { clearTimeout(timeout); subscription.unsubscribe(); removeUrlListener?.(); };
+    return () => { clearTimeout(timeout); subscription.unsubscribe(); removeUrlListener?.(); clearInterval(heartbeat); document.removeEventListener("visibilitychange", onVisible); };
   }, []);
 
   async function signOut() {

@@ -199,6 +199,11 @@ export function SwipeCard({ listing, userCurrency, onSwipeLeft, onSwipeRight, on
                     Size {listing.sizeValue}
                   </span>
                 )}
+                {listing.distance != null && (
+                  <span className="text-xs bg-white/20 text-white px-2 py-0.5 rounded-md backdrop-blur-sm">
+                    📍 {listing.distance < 1 ? `${Math.round(listing.distance * 1000)}m` : `${listing.distance.toFixed(1)} km`}
+                  </span>
+                )}
                 {(listing.colors?.length ?? 0) > 0 && (
                   <span className="text-xs bg-white/20 text-white px-2 py-0.5 rounded-md backdrop-blur-sm">
                     {listing.colors![0]}
