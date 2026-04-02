@@ -32,43 +32,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const initializedRef = useRef(false);
 
   async function fetchProfile(userId: string) {
-    const { data, error } = await supabase
-      .from("users")
-      .select("*")
-      .eq("id", userId)
-      .single();
-
-    if (error && error.code === "PGRST116") {
-      // No profile row yet — auto-create one from OAuth user metadata
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      const meta = authUser?.user_metadata ?? {};
-      const name = meta.full_name || meta.name || meta.email?.split("@")[0] || "User";
-      const avatar_url = meta.avatar_url || meta.picture || null;
-
-      const { data: created, error: createError } = await supabase
+    try {
+      const { data, error } = await supabase
         .from("users")
-        .insert({
-          id: userId,
-          name,
-          avatar_url,
-          onboarding_completed: true,
-        })
         .select("*")
+        .eq("id", userId)
         .single();
 
-      if (createError) {
-        console.error("Auto-create profile failed:", createError.message);
-      } else {
-        setProfile(created as UserProfile | null);
-        setProfileFetched(true);
-        return;
-      }
-    } else if (error) {
-      console.error("fetchProfile failed:", error.message);
-    }
+      if (error && error.code === "PGRST116") {
+        // No profile row yet — auto-create one from OAuth user metadata
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        const meta = authUser?.user_metadata ?? {};
+        const name = meta.full_name || meta.name || meta.email?.split("@")[0] || "User";
+        const avatar_url = meta.avatar_url || meta.picture || null;
 
-    setProfile(data as UserProfile | null);
-    setProfileFetched(true);
+        const { data: created, error: createError } = await supabase
+          .from("users")
+          .insert({
+            id: userId,
+            name,
+            avatar_url,
+            onboarding_completed: true,
+          })
+          .select("*")
+          .single();
+
+        if (createError) {
+          console.error("Auto-create profile failed:", createError.message);
+        } else {
+          setProfile(created as UserProfile | null);
+          return;
+        }
+      } else if (error) {
+        console.error("fetchProfile failed:", error.message);
+      } else {
+        setProfile(data as UserProfile | null);
+      }
+    } catch (e) {
+      console.error("fetchProfile threw:", e);
+    } finally {
+      // Always mark as fetched — prevents infinite spinner on any error/exception
+      setProfileFetched(true);
+    }
   }
 
   async function refreshProfile() {
@@ -107,17 +112,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
         setSession(session);
         setUser(session?.user ?? null);
-        if (session?.user) {
-          setProfileFetched(false); // reset so route guards wait for the new profile
-          await fetchProfile(session.user.id);
-          // Update last_seen_at on every sign-in / session restore
-          supabase.from("users").update({ last_seen_at: new Date().toISOString() }).eq("id", session.user.id)
-            .then(({ error }) => { if (error) import.meta.env.DEV && console.error("last_seen_at update failed:", error.message); });
-        } else {
-          setProfile(null);
-          setProfileFetched(true);
+        try {
+          if (session?.user) {
+            setProfileFetched(false); // reset so route guards wait for the new profile
+            await fetchProfile(session.user.id);
+            // Update last_seen_at on every sign-in / session restore
+            supabase.from("users").update({ last_seen_at: new Date().toISOString() }).eq("id", session.user.id)
+              .then(({ error }) => { if (error) import.meta.env.DEV && console.error("last_seen_at update failed:", error.message); });
+          } else {
+            setProfile(null);
+            setProfileFetched(true);
+          }
+        } finally {
+          // Always clear loading — prevents infinite spinner if fetchProfile throws
+          setLoading(false);
         }
-        setLoading(false);
       }
     );
 
