@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
-import { LayoutDashboard, Users, Package, Flag, MessageSquare, Star, Ban, ScrollText, ArrowLeft } from "lucide-react";
+import { LayoutDashboard, Users, Package, Flag, MessageSquare, Star, Ban, ScrollText, ArrowLeft, LifeBuoy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { supabase } from "@/integrations/supabase/client";
@@ -14,6 +14,7 @@ interface Stats {
   conversations: number;
   reviews: number;
   blocks: number;
+  open_tickets: number;
 }
 
 export default function AdminDashboard() {
@@ -26,6 +27,7 @@ export default function AdminDashboard() {
       const [
         { count: users }, { count: listings }, { count: avail }, { count: sold },
         { count: open_reports }, { count: conversations }, { count: reviews }, { count: blocks },
+        { count: open_tickets },
       ] = await Promise.all([
         supabase.from("users").select("*", { count: "exact", head: true }),
         supabase.from("clothing_listings").select("*", { count: "exact", head: true }),
@@ -35,8 +37,9 @@ export default function AdminDashboard() {
         supabase.from("conversations").select("*", { count: "exact", head: true }),
         supabase.from("reviews").select("*", { count: "exact", head: true }),
         supabase.from("blocks").select("*", { count: "exact", head: true }),
+        supabase.from("support_tickets").select("*", { count: "exact", head: true }).eq("status", "open"),
       ]);
-      setStats({ users: users ?? 0, listings: listings ?? 0, listings_available: avail ?? 0, listings_sold: sold ?? 0, open_reports: open_reports ?? 0, conversations: conversations ?? 0, reviews: reviews ?? 0, blocks: blocks ?? 0 });
+      setStats({ users: users ?? 0, listings: listings ?? 0, listings_available: avail ?? 0, listings_sold: sold ?? 0, open_reports: open_reports ?? 0, conversations: conversations ?? 0, reviews: reviews ?? 0, blocks: blocks ?? 0, open_tickets: open_tickets ?? 0 });
       setLoading(false);
     }
     load();
@@ -49,6 +52,7 @@ export default function AdminDashboard() {
     { icon: MessageSquare, label: "Conversations", value: stats?.conversations, to: "/admin/conversations", color: "text-primary" },
     { icon: Star, label: "Reviews", value: stats?.reviews, to: "/admin/reviews", color: "text-yellow-400" },
     { icon: Ban, label: "Blocks", value: stats?.blocks, to: "/admin/blocks", color: "text-muted-foreground" },
+    { icon: LifeBuoy, label: "Support Tickets", value: stats?.open_tickets, to: "/admin/support", color: "text-cyan-400", urgent: (stats?.open_tickets ?? 0) > 0 },
   ];
 
   return (

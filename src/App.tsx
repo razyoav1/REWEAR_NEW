@@ -49,6 +49,7 @@ import AdminConversations from "@/pages/admin/AdminConversations";
 import AdminReviews from "@/pages/admin/AdminReviews";
 import AdminBlocks from "@/pages/admin/AdminBlocks";
 import AdminAuditLog from "@/pages/admin/AdminAuditLog";
+import AdminSupportTickets from "@/pages/admin/AdminSupportTickets";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -200,6 +201,7 @@ function AppRoutes() {
       <Route path="/admin/reviews" element={<AdminRoute><AdminReviews /></AdminRoute>} />
       <Route path="/admin/blocks" element={<AdminRoute><AdminBlocks /></AdminRoute>} />
       <Route path="/admin/audit" element={<AdminRoute><AdminAuditLog /></AdminRoute>} />
+      <Route path="/admin/support" element={<AdminRoute><AdminSupportTickets /></AdminRoute>} />
 
       <Route path="*" element={<NotFound />} />
     </Routes>
