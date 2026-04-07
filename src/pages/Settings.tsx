@@ -113,7 +113,12 @@ export default function Settings() {
     setDeletingAccount(true);
     try {
       const { error } = await supabase.functions.invoke("delete-account");
-      if (error) throw error;
+      if (error) {
+        // Extract real error message from the edge function response body
+        const body = await (error as any).context?.json().catch(() => null);
+        const message = body?.error || body?.message || error.message || "Failed to delete account.";
+        throw new Error(message);
+      }
       await signOut();
       navigate("/auth");
     } catch (err: unknown) {

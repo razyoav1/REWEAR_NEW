@@ -21,7 +21,7 @@ serve(async (req) => {
   try {
     const authHeader = req.headers.get("Authorization");
     if (!authHeader) {
-      return jsonResponse({ error: "Unauthorized" }, 401);
+      return jsonResponse({ error: "Unauthorized: no auth header" }, 401);
     }
 
     // Verify the caller is authenticated
@@ -32,7 +32,7 @@ serve(async (req) => {
     );
     const { data: { user }, error: authError } = await userClient.auth.getUser();
     if (authError || !user) {
-      return jsonResponse({ error: "Unauthorized" }, 401);
+      return jsonResponse({ error: `Unauthorized: ${authError?.message ?? "no user"}` }, 401);
     }
 
     const adminClient = createClient(
@@ -40,21 +40,20 @@ serve(async (req) => {
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!
     );
 
-    // Delete storage files (best effort — don't fail if missing)
+    // Delete storage files (best effort)
     try {
       await adminClient.storage.from("avatars").remove([`${user.id}/avatar`]);
     } catch (_) { /* ignore */ }
 
-    // Deleting the auth user cascades to public.users, which cascades
-    // to all related tables (listings, messages, follows, blocks, etc.)
+    // Delete auth user — cascades to public.users and all child tables
     const { error: deleteError } = await adminClient.auth.admin.deleteUser(user.id);
     if (deleteError) {
-      return jsonResponse({ error: deleteError.message }, 500);
+      return jsonResponse({ error: `deleteUser failed: ${deleteError.message}` }, 500);
     }
 
     return jsonResponse({ success: true });
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : "Internal server error";
-    return jsonResponse({ error: message }, 500);
+    return jsonResponse({ error: `Unhandled exception: ${message}` }, 500);
   }
 });
