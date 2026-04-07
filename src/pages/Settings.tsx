@@ -112,9 +112,14 @@ export default function Settings() {
   async function handleDeleteAccount() {
     setDeletingAccount(true);
     try {
-      const { error } = await supabase.functions.invoke("delete-account");
+      // Explicitly get session and pass token — fixes "Invalid JWT" for OAuth users
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error("No active session. Please sign in again.");
+
+      const { error } = await supabase.functions.invoke("delete-account", {
+        headers: { Authorization: `Bearer ${session.access_token}` },
+      });
       if (error) {
-        // Extract real error message from the edge function response body
         const body = await (error as any).context?.json().catch(() => null);
         const message = body?.error || body?.message || error.message || "Failed to delete account.";
         throw new Error(message);
